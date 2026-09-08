@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultWhatsAppMessageRouter } from "@/lib/whatsapp/whatsapp-message-router";
+import { getWhatsAppMessageRouter } from "@/lib/whatsapp/whatsapp-message-router";
 import { WhatsAppService } from "@/lib/services/whatsapp.service";
 import { MetaWebhookPayload } from "@/lib/whatsapp/whatsapp-types";
 import { getSecret } from "@/lib/server-env";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const configuredToken = getSecret("WHATSAPP_VERIFY_TOKEN", "nexus_whatsapp_verify_token_secure");
+  const configuredToken = getSecret("WHATSAPP_VERIFY_TOKEN");
 
   if (mode === "subscribe" && token === configuredToken) {
     console.log("[WhatsApp Webhook] Verification handshake successful.");
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
 
         const messages = value.messages || [];
         for (const msg of messages) {
-          const result = await defaultWhatsAppMessageRouter.handleInboundMessage(msg);
+          const router = getWhatsAppMessageRouter();
+          const result = await router.handleInboundMessage(msg);
           results.push(result);
           processedCount++;
         }

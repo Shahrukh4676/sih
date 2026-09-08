@@ -46,9 +46,33 @@ export const SERVER_KEYS = {
 export type ServerSecretKey = keyof typeof SERVER_KEYS;
 
 /**
- * Reads a server-side environment variable strictly at runtime.
- * Dynamic bracket index access (process.env[key]) prevents Turbopack
- * from performing static member analysis or build-time inlining.
+ * Determines whether Next.js is actively running in a build phase.
+ * During build compilation, secrets must NEVER be evaluated, returned,
+ * or serialized into AST or cache tables.
+ */
+function isBuildPhase(): boolean {
+  try {
+    const g = globalThis as Record<string, unknown>;
+    const p = (g["process"] || (typeof process !== "undefined" ? process : undefined)) as
+      | { env?: Record<string, string | undefined> }
+      | undefined;
+    const phase = p?.env?.["NEXT_PHASE"];
+    if (phase === "phase-production-build" || phase === "phase-export") {
+      return true;
+    }
+    if (p?.env?.["__NEXT_BUILDING"] === "1" || p?.env?.["__NEXT_BUILDING"] === "true") {
+      return true;
+    }
+  } catch {
+    // Fallback safely
+  }
+  return false;
+}
+
+/**
+ * Reads a server-side environment variable strictly at runtime during request execution.
+ * 1. Blocks build-time evaluation when Next.js is compiling/prerendering.
+ * 2. Uses reflection access to avoid Turbopack static AST identifier matching.
  *
  * @param key Environment variable name or key
  * @param defaultValue Optional fallback value if not present in environment
@@ -61,8 +85,21 @@ export function getServerEnv(key: string, defaultValue = ""): string {
     );
   }
 
-  // Dynamic index access bypasses Turbopack static inlining
-  const envObj = process.env;
+  // During build phase, never return secrets to compiler or cache serializers
+  if (isBuildPhase()) {
+    return defaultValue;
+  }
+
+  // Reflection-based lookup prevents static bundler AST tracing
+  const g = globalThis as Record<string, unknown>;
+  const proc = (g["process"] || (typeof process !== "undefined" ? process : undefined)) as
+    | { env?: Record<string, string | undefined> }
+    | undefined;
+  const envObj = proc?.env;
+  if (!envObj) {
+    return defaultValue;
+  }
+
   const val = envObj[key];
   if (val !== undefined && val !== null && val !== "") {
     return val;

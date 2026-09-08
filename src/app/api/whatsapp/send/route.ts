@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultWhatsAppClient } from "@/lib/whatsapp/whatsapp-client";
+import { getWhatsAppClient } from "@/lib/whatsapp/whatsapp-client";
 import { defaultWhatsAppUserLinkService } from "@/lib/whatsapp/whatsapp-user-link";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,11 +26,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const client = getWhatsAppClient();
     let sendResult;
     if (type === "button" && Array.isArray(buttons) && buttons.length > 0) {
-      sendResult = await defaultWhatsAppClient.sendButtonMessage(to, text, buttons);
+      sendResult = await client.sendButtonMessage(to, text, buttons);
     } else {
-      sendResult = await defaultWhatsAppClient.sendTextMessage(to, text);
+      sendResult = await client.sendTextMessage(to, text);
     }
 
     return NextResponse.json({

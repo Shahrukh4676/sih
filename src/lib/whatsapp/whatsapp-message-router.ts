@@ -856,4 +856,21 @@ export class WhatsAppMessageRouter {
   }
 }
 
-export const defaultWhatsAppMessageRouter = new WhatsAppMessageRouter();
+export function getWhatsAppMessageRouter(): WhatsAppMessageRouter {
+  return new WhatsAppMessageRouter();
+}
+
+/**
+ * Lazy request-time proxy to prevent top-level singleton instantiation during Next.js build.
+ * Methods are only resolved when invoked at runtime during a live request.
+ */
+export const defaultWhatsAppMessageRouter: WhatsAppMessageRouter = new Proxy(
+  {} as WhatsAppMessageRouter,
+  {
+    get(_target, prop, receiver) {
+      const router = getWhatsAppMessageRouter();
+      const val = Reflect.get(router, prop, receiver);
+      return typeof val === "function" ? val.bind(router) : val;
+    },
+  }
+);

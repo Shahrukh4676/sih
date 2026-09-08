@@ -9,7 +9,7 @@ import crypto from "crypto";
 import "server-only";
 import { getSecret, hasSecret } from "@/lib/server-env";
 import { WhatsAppConnection, WhatsAppConversation } from "@/types";
-import { defaultWhatsAppClient } from "../whatsapp/whatsapp-client";
+import { getWhatsAppClient } from "../whatsapp/whatsapp-client";
 import { defaultWhatsAppUserLinkService } from "../whatsapp/whatsapp-user-link";
 import { defaultWhatsAppConversationManager } from "../whatsapp/whatsapp-conversation";
 
@@ -26,8 +26,9 @@ export class WhatsAppService {
     health: "HEALTHY" | "CONFIGURATION_REQUIRED";
     mode: "LIVE_META_CLOUD" | "OFFLINE_SIMULATION";
   }> {
-    const configured = defaultWhatsAppClient.isConfigured();
-    const phoneNumberId = defaultWhatsAppClient.getPhoneNumberId();
+    const client = getWhatsAppClient();
+    const configured = client.isConfigured();
+    const phoneNumberId = client.getPhoneNumberId();
     const webhookVerifyToken = hasSecret("WHATSAPP_VERIFY_TOKEN");
 
     const connections = await defaultWhatsAppUserLinkService.listConnectionsByOrg(organizationId);
@@ -91,7 +92,7 @@ export class WhatsAppService {
    * Sends outbound test / administrative notification
    */
   public static async sendTextMessage(to: string, text: string) {
-    return defaultWhatsAppClient.sendTextMessage(to, text);
+    return getWhatsAppClient().sendTextMessage(to, text);
   }
 
   /**

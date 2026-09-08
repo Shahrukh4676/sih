@@ -73,11 +73,11 @@ export class N8nClient {
   }
 
   public getCallbackSecret(): string {
-    return getSecret("N8N_CALLBACK_SECRET", "nexus_n8n_cloud_callback_secret_2025");
+    return getSecret("N8N_CALLBACK_SECRET");
   }
 
   public getWebhookSecret(): string {
-    return getSecret("N8N_WEBHOOK_SECRET", "nexus_n8n_shared_secret_default");
+    return getSecret("N8N_WEBHOOK_SECRET");
   }
 
   public buildHeaders(): Record<string, string> {
@@ -261,4 +261,18 @@ export class N8nClient {
   }
 }
 
-export const defaultN8nClient = new N8nClient();
+export function getN8nClient(): N8nClient {
+  return new N8nClient();
+}
+
+/**
+ * Lazy request-time proxy to prevent top-level singleton instantiation during Next.js build.
+ * Methods are only resolved when invoked at runtime during a live request.
+ */
+export const defaultN8nClient: N8nClient = new Proxy({} as N8nClient, {
+  get(_target, prop, receiver) {
+    const client = getN8nClient();
+    const val = Reflect.get(client, prop, receiver);
+    return typeof val === "function" ? val.bind(client) : val;
+  },
+});

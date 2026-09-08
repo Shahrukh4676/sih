@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LinkedInService } from "@/lib/services/linkedin.service";
-import { defaultLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
+import { getLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -51,12 +51,13 @@ export async function GET(req: NextRequest) {
     }
 
     const { userId, organizationId } = stateData;
+    const client = getLinkedInClient();
 
     // 2. Exchange authorization code for token
-    const tokenData = await defaultLinkedInClient.exchangeCodeForToken(code);
+    const tokenData = await client.exchangeCodeForToken(code);
 
     // 3. Fetch authenticated member profile from OpenID Connect userinfo
-    const profile = await defaultLinkedInClient.getMemberProfile(tokenData.accessToken);
+    const profile = await client.getMemberProfile(tokenData.accessToken);
 
     // 4. Save encrypted connection
     await LinkedInService.saveLinkedInConnection({

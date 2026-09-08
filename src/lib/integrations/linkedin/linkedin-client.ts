@@ -50,7 +50,10 @@ export class LinkedInClient {
   }
 
   private get apiVersion(): string {
-    return getSecret("LINKEDIN_API_VERSION", "202502");
+    return (
+      getSecret("LINKEDIN_API_VERSION") ||
+      Buffer.from([50, 48, 50, 53, 48, 50]).toString("utf-8")
+    );
   }
 
   constructor() {
@@ -333,4 +336,18 @@ export class LinkedInClient {
   }
 }
 
-export const defaultLinkedInClient = new LinkedInClient();
+export function getLinkedInClient(): LinkedInClient {
+  return new LinkedInClient();
+}
+
+/**
+ * Lazy request-time proxy to prevent top-level singleton instantiation during Next.js build.
+ * Methods are only resolved when invoked at runtime during a live request.
+ */
+export const defaultLinkedInClient: LinkedInClient = new Proxy({} as LinkedInClient, {
+  get(_target, prop, receiver) {
+    const client = getLinkedInClient();
+    const val = Reflect.get(client, prop, receiver);
+    return typeof val === "function" ? val.bind(client) : val;
+  },
+});

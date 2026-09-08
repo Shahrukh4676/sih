@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LinkedInService } from "@/lib/services/linkedin.service";
-import { defaultLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
+import { getLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
+    const client = getLinkedInClient();
     const searchParams = req.nextUrl.searchParams;
     const userId =
       req.headers.get("x-user-id") ||
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     // Generate secure CSRF single-use state
     const state = await LinkedInService.createOAuthState(userId, organizationId);
-    const authUrl = defaultLinkedInClient.getAuthorizationUrl(state, customRedirectUri);
+    const authUrl = client.getAuthorizationUrl(state, customRedirectUri);
 
     // Support JSON response for API/testing clients
     const isJsonRequested =
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
         success: true,
         url: authUrl,
         state,
-        redirectUri: customRedirectUri || defaultLinkedInClient.getRedirectUri(),
+        redirectUri: customRedirectUri || client.getRedirectUri(),
       });
     }
 

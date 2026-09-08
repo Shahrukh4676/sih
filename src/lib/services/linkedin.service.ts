@@ -28,7 +28,7 @@ import {
   PublishingStatus,
 } from "@/types";
 import { encryptToken, decryptToken } from "../security/token-encryption";
-import { defaultLinkedInClient } from "../integrations/linkedin/linkedin-client";
+import { getLinkedInClient } from "../integrations/linkedin/linkedin-client";
 import { getContentById, updateContent, updateContentStatus } from "./content.service";
 import { logAuditEvent } from "./audit.service";
 import { cleanForFirestore } from "../firebase/firestore-utils";
@@ -557,7 +557,7 @@ export class LinkedInService {
       },
     });
 
-    const publishResult = await defaultLinkedInClient.publishMemberPost(
+    const publishResult = await getLinkedInClient().publishMemberPost(
       accessToken,
       connection.linkedinMemberUrn,
       textContent

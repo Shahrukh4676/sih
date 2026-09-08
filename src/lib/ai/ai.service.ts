@@ -321,4 +321,18 @@ class AIServiceRegistry {
   }
 }
 
-export const AIService = new AIServiceRegistry();
+export function getAIService(): AIServiceRegistry {
+  return new AIServiceRegistry();
+}
+
+/**
+ * Lazy request-time proxy to prevent top-level singleton instantiation during Next.js build.
+ * Methods are only resolved when invoked at runtime during a live request.
+ */
+export const AIService: AIServiceRegistry = new Proxy({} as AIServiceRegistry, {
+  get(_target, prop, receiver) {
+    const instance = getAIService();
+    const val = Reflect.get(instance, prop, receiver);
+    return typeof val === "function" ? val.bind(instance) : val;
+  },
+});

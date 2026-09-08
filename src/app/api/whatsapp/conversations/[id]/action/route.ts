@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultWhatsAppConversationManager } from "@/lib/whatsapp/whatsapp-conversation";
-import { defaultWhatsAppMessageRouter } from "@/lib/whatsapp/whatsapp-message-router";
+import { getWhatsAppMessageRouter } from "@/lib/whatsapp/whatsapp-message-router";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * POST /api/whatsapp/conversations/[id]/action
@@ -44,7 +47,8 @@ export async function POST(
           : undefined,
       };
 
-      const routerResult = await defaultWhatsAppMessageRouter.handleInboundMessage(simMessage);
+      const router = getWhatsAppMessageRouter();
+      const routerResult = await router.handleInboundMessage(simMessage);
       const updatedConv = await defaultWhatsAppConversationManager.getConversation(id);
 
       return NextResponse.json({

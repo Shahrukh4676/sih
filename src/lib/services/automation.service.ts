@@ -11,7 +11,7 @@ import "server-only";
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { AutomationEvent, AutomationEventStatus } from "@/types";
-import { defaultN8nClient, ApprovedContentTriggerPayload } from "../automation/n8n-client";
+import { getN8nClient, ApprovedContentTriggerPayload } from "../automation/n8n-client";
 import { getContentById } from "./content.service";
 import { logAuditEvent } from "./audit.service";
 import { cleanForFirestore } from "../firebase/firestore-utils";
@@ -142,7 +142,7 @@ export class AutomationService {
       channel: channel.toLowerCase(),
       status: "TRIGGERED",
       workflowName: "NEXUS — Approved Content Orchestration",
-      webhookUrl: defaultN8nClient.getWebhookUrl(),
+      webhookUrl: getN8nClient().getWebhookUrl(),
       retryCount: 0,
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -179,7 +179,7 @@ export class AutomationService {
         contentId,
         versionId,
         channel,
-        webhookUrl: defaultN8nClient.getWebhookUrl(),
+        webhookUrl: getN8nClient().getWebhookUrl(),
       },
     });
 
@@ -197,7 +197,7 @@ export class AutomationService {
     };
 
     // Dispatch webhook asynchronously
-    defaultN8nClient.triggerN8nWorkflow(triggerPayload).then(async (result) => {
+    getN8nClient().triggerN8nWorkflow(triggerPayload).then(async (result) => {
       // Check if event was already completed or updated by an asynchronous callback
       const current = await AutomationService.getAutomationEventById(eventId);
       if (current && current.status === "COMPLETED") {
@@ -260,7 +260,7 @@ export class AutomationService {
     event?: AutomationEvent;
   }> {
     // 1. Authenticate n8n callback secret
-    const isAuthenticated = defaultN8nClient.verifyCallbackSecret(headers);
+    const isAuthenticated = getN8nClient().verifyCallbackSecret(headers);
     if (!isAuthenticated) {
       console.warn("[AutomationService] Callback rejected: Invalid callback secret.");
       return { success: false, status: 401, error: "Unauthorized: Invalid callback secret" };
@@ -499,7 +499,7 @@ export class AutomationService {
       timestamp: new Date().toISOString(),
     };
 
-    const result = await defaultN8nClient.triggerN8nWorkflow(triggerPayload);
+    const result = await getN8nClient().triggerN8nWorkflow(triggerPayload);
     if (!result.success) {
       existing.status = "FAILED";
       existing.error = result.error;

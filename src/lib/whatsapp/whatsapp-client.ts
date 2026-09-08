@@ -304,4 +304,18 @@ export class WhatsAppClient {
   }
 }
 
-export const defaultWhatsAppClient = new WhatsAppClient();
+export function getWhatsAppClient(): WhatsAppClient {
+  return new WhatsAppClient();
+}
+
+/**
+ * Lazy request-time proxy to prevent top-level singleton instantiation during Next.js build.
+ * Methods are only resolved when invoked at runtime during a live request.
+ */
+export const defaultWhatsAppClient: WhatsAppClient = new Proxy({} as WhatsAppClient, {
+  get(_target, prop, receiver) {
+    const client = getWhatsAppClient();
+    const val = Reflect.get(client, prop, receiver);
+    return typeof val === "function" ? val.bind(client) : val;
+  },
+});
