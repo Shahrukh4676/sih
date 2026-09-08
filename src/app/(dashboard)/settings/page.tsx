@@ -25,7 +25,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/ui/Icons";
-import { MOCK_USER, MOCK_ORGANIZATION } from "@/lib/mock-data";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -49,13 +48,13 @@ export default function SettingsPage() {
 
   // Form states
   const [displayName, setDisplayName] = useState(
-    userProfile?.displayName || MOCK_USER.displayName
+    userProfile?.displayName || userProfile?.email?.split("@")[0] || "User"
   );
   const [email, setEmail] = useState(
-    userProfile?.email || MOCK_USER.email
+    userProfile?.email || "admin@nexus.ai"
   );
   const [orgName, setOrgName] = useState(
-    organization?.name || MOCK_ORGANIZATION.name
+    organization?.name || userProfile?.organizationId || "Primary Organization"
   );
   const [brandTone, setBrandTone] = useState("Professional & Objective");
   const [brandAudience, setBrandAudience] = useState("Technical & Executive");

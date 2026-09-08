@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -19,9 +19,10 @@ import {
   ExternalLink,
   RotateCcw,
   Check,
+  RefreshCw,
 } from "lucide-react";
-import { MOCK_CONTENTS } from "@/lib/mock-data";
 import { Content, ContentStatus, OutputFormat } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -29,11 +30,35 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 
 export default function ContentLibraryPage() {
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+
+  const [contents, setContents] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [formatFilter, setFormatFilter] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"TABLE" | "GRID">("TABLE");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const fetchContents = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/content?organizationId=${organizationId}`);
+      const data = await res.json();
+      if (data.success && data.contents) {
+        setContents(data.contents);
+      }
+    } catch (err) {
+      console.error("Error fetching content library:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    fetchContents();
+  }, [fetchContents]);
 
   const statusOptions = [
     { id: "ALL", label: "All Statuses" },
@@ -53,11 +78,15 @@ export default function ContentLibraryPage() {
     { id: "PRESENTATION", label: "Presentation Deck" },
   ];
 
-  const filteredContents = MOCK_CONTENTS.filter((item) => {
+  const filteredContents = contents.filter((item) => {
+    const title = item.title || "";
+    const body = item.currentVersion?.body || item.content || "";
+    const audience = item.targetAudience || "";
+
     const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.currentVersion.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.targetAudience.toLowerCase().includes(searchQuery.toLowerCase());
+      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      body.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      audience.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
     const matchesFormat = formatFilter === "ALL" || item.outputFormat === formatFilter;
@@ -171,8 +200,13 @@ export default function ContentLibraryPage() {
         </CardContent>
       </Card>
 
-      {/* 3. Empty State or Content View */}
-      {filteredContents.length === 0 ? (
+      {/* 3. Empty State, Loading, or Content View */}
+      {loading ? (
+        <Card className="p-12 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+          <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+          <span>Loading content library...</span>
+        </Card>
+      ) : filteredContents.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No content artefacts match criteria"
@@ -197,73 +231,79 @@ export default function ContentLibraryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredContents.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                    <td className="px-5 py-3 font-medium text-slate-900 max-w-sm truncate">
-                      <Link
-                        href={`/content/${item.id}`}
-                        className="font-semibold text-slate-800 hover:text-blue-600 transition block truncate"
-                      >
-                        {item.title}
-                      </Link>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        ID: {item.id}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="neutral" size="sm">
-                        {item.outputFormat.replace(/_/g, " ")}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          item.status === "PUBLISHED"
-                            ? "success"
-                            : item.status === "AWAITING_APPROVAL"
-                            ? "warning"
-                            : "brand"
-                        }
-                        size="sm"
-                        dot
-                      >
-                        {item.status.replace(/_/g, " ")}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-[11px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold border border-slate-200">
-                        v{item.currentVersion.versionNumber}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {item.targetAudience}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                      {formatRelativeTime(item.createdAt)}
-                    </td>
-                    <td className="px-5 py-3 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => handleCopy(item.id, item.currentVersion.body)}
-                          title="Copy body text"
+                {filteredContents.map((item) => {
+                  const bodyText = item.currentVersion?.body || item.content || "";
+                  const versionNum = item.currentVersion?.versionNumber || item.version || 1;
+                  const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                      <td className="px-5 py-3 font-medium text-slate-900 max-w-sm truncate">
+                        <Link
+                          href={`/content/${item.id}`}
+                          className="font-semibold text-slate-800 hover:text-blue-600 transition block truncate"
                         >
-                          {copiedId === item.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
-                        <Link href={`/content/${item.id}`}>
-                          <Button variant="outline" size="xs">
-                            Workspace
-                          </Button>
+                          {item.title}
                         </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        <div className="text-[11px] text-slate-400 truncate">
+                          ID: {item.id}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="neutral" size="sm">
+                          {formatLabel}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            item.status === "PUBLISHED"
+                              ? "success"
+                              : item.status === "AWAITING_APPROVAL"
+                              ? "warning"
+                              : "brand"
+                          }
+                          size="sm"
+                          dot
+                        >
+                          {item.status.replace(/_/g, " ")}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-[11px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold border border-slate-200">
+                          v{versionNum}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {item.targetAudience}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        {formatRelativeTime(item.createdAt)}
+                      </td>
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => handleCopy(item.id, bodyText)}
+                            title="Copy body text"
+                          >
+                            {copiedId === item.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                          <Link href={`/content/${item.id}`}>
+                            <Button variant="outline" size="xs">
+                              Workspace
+                            </Button>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -271,61 +311,67 @@ export default function ContentLibraryPage() {
       ) : (
         /* GRID VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredContents.map((item) => (
-            <Card key={item.id} hoverable className="flex flex-col justify-between">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <Badge variant="neutral" size="sm">
-                    {item.outputFormat.replace(/_/g, " ")}
-                  </Badge>
-                  <Badge
-                    variant={
-                      item.status === "PUBLISHED"
-                        ? "success"
-                        : item.status === "AWAITING_APPROVAL"
-                        ? "warning"
-                        : "brand"
-                    }
-                    size="sm"
-                    dot
+          {filteredContents.map((item) => {
+            const bodyText = item.currentVersion?.body || item.content || "";
+            const versionNum = item.currentVersion?.versionNumber || item.version || 1;
+            const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+
+            return (
+              <Card key={item.id} hoverable className="flex flex-col justify-between">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <Badge variant="neutral" size="sm">
+                      {formatLabel}
+                    </Badge>
+                    <Badge
+                      variant={
+                        item.status === "PUBLISHED"
+                          ? "success"
+                          : item.status === "AWAITING_APPROVAL"
+                          ? "warning"
+                          : "brand"
+                      }
+                      size="sm"
+                      dot
+                    >
+                      {item.status.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-sm font-semibold line-clamp-2">
+                    <Link
+                      href={`/content/${item.id}`}
+                      className="hover:text-blue-600 transition"
+                    >
+                      {item.title}
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                    {bodyText}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Version v{versionNum}</span>
+                    <span>{formatRelativeTime(item.createdAt)}</span>
+                  </div>
+                </CardContent>
+                <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => handleCopy(item.id, bodyText)}
                   >
-                    {item.status.replace(/_/g, " ")}
-                  </Badge>
-                </div>
-                <CardTitle className="text-sm font-semibold line-clamp-2">
-                  <Link
-                    href={`/content/${item.id}`}
-                    className="hover:text-blue-600 transition"
-                  >
-                    {item.title}
-                  </Link>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="py-2">
-                <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
-                  {item.currentVersion.body}
-                </p>
-                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Version v{item.currentVersion.versionNumber}</span>
-                  <span>{formatRelativeTime(item.createdAt)}</span>
-                </div>
-              </CardContent>
-              <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => handleCopy(item.id, item.currentVersion.body)}
-                >
-                  {copiedId === item.id ? "Copied" : "Copy"}
-                </Button>
-                <Link href={`/content/${item.id}`}>
-                  <Button variant="outline" size="xs">
-                    View Details
+                    {copiedId === item.id ? "Copied" : "Copy"}
                   </Button>
-                </Link>
-              </div>
-            </Card>
-          ))}
+                  <Link href={`/content/${item.id}`}>
+                    <Button variant="outline" size="xs">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

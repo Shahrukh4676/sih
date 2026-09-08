@@ -20,13 +20,16 @@ export async function logAuditEvent(
     // In Phase 2, generate deterministic hex signature for audit verification
     const integrityHash = `sha256:${Date.now().toString(16)}_${Math.random().toString(16).substring(2, 10)}`;
 
-    const payload = {
+    const rawPayload = {
       ...entry,
       id,
       integrityHash,
       createdAt: serverTimestamp(),
       timestamp: nowIso
     };
+
+    // Remove undefined properties which Firestore rejects
+    const payload = JSON.parse(JSON.stringify(rawPayload, (_, v) => (v === undefined ? null : v)));
 
     await setDoc(ref, payload);
     return id;

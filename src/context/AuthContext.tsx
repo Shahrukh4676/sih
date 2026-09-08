@@ -6,7 +6,6 @@ import { subscribeToAuth, signOutUser } from "@/lib/services/auth.service";
 import { getUserProfile, createUserProfile } from "@/lib/services/users.service";
 import { getOrganization } from "@/lib/services/organizations.service";
 import { User, Organization, UserRole } from "@/types";
-import { MOCK_USER, MOCK_ORGANIZATION } from "@/lib/mock-data";
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -72,14 +71,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error("[AuthContext] Error loading user & organization:", err);
-      // Fallback to mock session if Firestore permissions / network is constrained
+      // Fallback session if Firestore permissions / network is constrained
       setUserProfile({
-        ...MOCK_USER,
+        id: fbUser.uid,
         uid: fbUser.uid,
-        email: fbUser.email || MOCK_USER.email,
-        displayName: fbUser.displayName || MOCK_USER.displayName
+        email: fbUser.email || "",
+        displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "User",
+        organizationId: "org_primary",
+        role: "ADMIN",
+        status: "ACTIVE",
+        mfaEnabled: false,
+        activeSessionsCount: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
-      setOrganization(MOCK_ORGANIZATION);
+      setOrganization({
+        id: "org_primary",
+        organizationId: "org_primary",
+        name: "Primary Organization",
+        createdBy: fbUser.uid,
+        status: "ACTIVE",
+        slug: "org-primary",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
     }

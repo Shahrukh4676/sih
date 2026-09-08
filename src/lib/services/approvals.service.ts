@@ -46,12 +46,16 @@ export async function getPendingApprovalsByOrg(organizationId: string): Promise<
   try {
     const q = query(
       collection(db, APPROVALS_COLLECTION),
-      where("organizationId", "==", organizationId),
-      where("status", "==", "PENDING"),
-      orderBy("createdAt", "desc")
+      where("organizationId", "==", organizationId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Approval));
+    const items = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Approval))
+      .filter((d) => d.status === "PENDING");
+    items.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+    return items;
   } catch (error) {
     console.error("[Approvals Service] Error fetching approvals:", error);
     return [];

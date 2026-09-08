@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPendingApprovalsByOrg } from "@/lib/services/approvals.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const orgId = req.nextUrl.searchParams.get("organizationId") || "org_nexus_default";

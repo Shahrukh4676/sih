@@ -18,8 +18,8 @@ import {
   Zap,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/ui/Icons";
-import { MOCK_CONTENTS } from "@/lib/mock-data";
-import { PublishingRecord } from "@/types";
+import { Content, PublishingRecord } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import { formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -41,6 +41,9 @@ interface LinkedInStatus {
 }
 
 export default function PublishingCenterPage() {
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+
   const [activeTab, setActiveTab] = useState<
     "CHANNELS" | "READY" | "HISTORY"
   >("CHANNELS");
@@ -50,6 +53,8 @@ export default function PublishingCenterPage() {
   const [statusLoading, setStatusLoading] = useState(false);
   const [records, setRecords] = useState<PublishingRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [readyItems, setReadyItems] = useState<Content[]>([]);
+  const [readyLoading, setReadyLoading] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [publishFeedback, setPublishFeedback] = useState<{
     type: "success" | "error";
@@ -60,7 +65,7 @@ export default function PublishingCenterPage() {
   const fetchLinkedinStatus = useCallback(async () => {
     try {
       setStatusLoading(true);
-      const res = await fetch("/api/integrations/linkedin/status");
+      const res = await fetch(`/api/integrations/linkedin/status?organizationId=${organizationId}`);
       const data = await res.json();
       setLinkedinStatus(data);
     } catch (err) {
@@ -68,12 +73,12 @@ export default function PublishingCenterPage() {
     } finally {
       setStatusLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   const fetchRecords = useCallback(async () => {
     try {
       setRecordsLoading(true);
-      const res = await fetch("/api/publishing/records");
+      const res = await fetch(`/api/publishing/records?organizationId=${organizationId}`);
       const data = await res.json();
       if (data.success && data.records) {
         setRecords(data.records);
@@ -83,12 +88,28 @@ export default function PublishingCenterPage() {
     } finally {
       setRecordsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
+
+  const fetchReadyContent = useCallback(async () => {
+    try {
+      setReadyLoading(true);
+      const res = await fetch(`/api/content?organizationId=${organizationId}&status=APPROVED`);
+      const data = await res.json();
+      if (data.success && data.contents) {
+        setReadyItems(data.contents);
+      }
+    } catch (err) {
+      console.error("Error fetching ready content:", err);
+    } finally {
+      setReadyLoading(false);
+    }
+  }, [organizationId]);
 
   useEffect(() => {
     fetchLinkedinStatus();
     fetchRecords();
-  }, [fetchLinkedinStatus, fetchRecords]);
+    fetchReadyContent();
+  }, [fetchLinkedinStatus, fetchRecords, fetchReadyContent]);
 
   const handleDisconnect = async () => {
     try {
@@ -96,8 +117,8 @@ export default function PublishingCenterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          organizationId: "org_primary",
-          userId: "usr_admin_default",
+          organizationId,
+          userId: userProfile?.uid || "usr_admin_default",
         }),
       });
       if (res.ok) {
@@ -108,10 +129,11 @@ export default function PublishingCenterPage() {
     }
   };
 
-  const handlePublishToLinkedIn = async (contentId: string, title: string) => {
+  const handlePublishToLinkedIn = async (contentId: string, title: string, itemOrgId?: string) => {
     try {
       setPublishingId(contentId);
       setPublishFeedback(null);
+      const targetOrgId = itemOrgId || organizationId;
 
       const res = await fetch("/api/integrations/linkedin/publish", {
         method: "POST",
@@ -119,7 +141,7 @@ export default function PublishingCenterPage() {
         body: JSON.stringify({
           contentId,
           versionId: "v1",
-          organizationId: "org_primary",
+          organizationId: targetOrgId,
         }),
       });
 
@@ -133,6 +155,7 @@ export default function PublishingCenterPage() {
         });
         await fetchRecords();
         await fetchLinkedinStatus();
+        await fetchReadyContent();
       } else {
         setPublishFeedback({
           type: "error",
@@ -149,8 +172,6 @@ export default function PublishingCenterPage() {
       setPublishingId(null);
     }
   };
-
-  const readyItems = MOCK_CONTENTS.filter((c) => c.status === "APPROVED");
 
   const channelIntegrations = [
     {
@@ -229,8 +250,9 @@ export default function PublishingCenterPage() {
             onClick={() => {
               fetchLinkedinStatus();
               fetchRecords();
+              fetchReadyContent();
             }}
-            leftIcon={<RefreshCw className={`w-4 h-4 ${statusLoading || recordsLoading ? "animate-spin" : ""}`} />}
+            leftIcon={<RefreshCw className={`w-4 h-4 ${statusLoading || recordsLoading || readyLoading ? "animate-spin" : ""}`} />}
           >
             Refresh
           </Button>
@@ -384,7 +406,7 @@ export default function PublishingCenterPage() {
             />
           ) : (
             readyItems.map((item) => {
-              const bodyText = item.currentVersion.body || "";
+              const bodyText = item.currentVersion?.body || item.content || "";
               const charCount = bodyText.length;
               const isOverLimit = charCount > 3000;
               const isPublishing = publishingId === item.id;
@@ -397,7 +419,7 @@ export default function PublishingCenterPage() {
                         Approved
                       </Badge>
                       <span className="text-xs text-slate-400">
-                        Format: {item.outputFormat.replace(/_/g, " ")}
+                        Format: {item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "LinkedIn Post"}
                       </span>
                       <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
                         isOverLimit ? "bg-rose-50 text-rose-700 font-bold" : "bg-slate-100 text-slate-600"
@@ -423,7 +445,7 @@ export default function PublishingCenterPage() {
                       variant="primary"
                       size="xs"
                       disabled={isOverLimit || isPublishing || !linkedinStatus?.connected}
-                      onClick={() => handlePublishToLinkedIn(item.id, item.title)}
+                      onClick={() => handlePublishToLinkedIn(item.id, item.title, item.organizationId)}
                       className="bg-[#0A66C2] hover:bg-[#004182] text-white"
                       leftIcon={<Zap className={`w-3.5 h-3.5 ${isPublishing ? "animate-spin" : ""}`} />}
                     >

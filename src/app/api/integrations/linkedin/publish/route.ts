@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
           success: false,
           status: result.status,
           errorCode: result.errorCode,
+          code: result.errorCode,
           error: result.error,
         },
         { status: httpStatus }

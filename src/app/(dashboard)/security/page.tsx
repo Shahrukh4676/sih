@@ -20,23 +20,21 @@ import {
   Check,
   XCircle,
 } from "lucide-react";
-import {
-  MOCK_AUDIT_LOGS,
-  MOCK_SECURITY_EVENTS,
-  MOCK_USER,
-  MOCK_ORGANIZATION,
-} from "@/lib/mock-data";
+import { AuditLog, SecurityEvent } from "@/types";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function SecurityCenterPage() {
   const [activeTab, setActiveTab] = useState<
     "CAPABILITIES" | "AUDIT" | "INCIDENTS" | "RBAC" | "SESSIONS"
   >("CAPABILITIES");
-  const [mfaEnabled, setMfaEnabled] = useState(MOCK_USER.mfaEnabled);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [securityEvents] = useState<SecurityEvent[]>([]);
+  const [auditLogs] = useState<AuditLog[]>([]);
 
   const activeSessions = [
     {
@@ -137,8 +135,8 @@ export default function SecurityCenterPage() {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto no-scrollbar">
         {[
           { id: "CAPABILITIES", label: "Security Capabilities" },
-          { id: "INCIDENTS", label: `Security Incidents (${MOCK_SECURITY_EVENTS.length})` },
-          { id: "AUDIT", label: `Cryptographic Audit Logs (${MOCK_AUDIT_LOGS.length})` },
+          { id: "INCIDENTS", label: `Security Incidents (${securityEvents.length})` },
+          { id: "AUDIT", label: `Cryptographic Audit Logs (${auditLogs.length})` },
           { id: "RBAC", label: "RBAC Permissions Scope" },
           { id: "SESSIONS", label: "Active Sessions & MFA" },
         ].map((t) => (
@@ -249,42 +247,50 @@ export default function SecurityCenterPage() {
             </p>
           </CardHeader>
           <div className="p-5 space-y-3">
-            {MOCK_SECURITY_EVENTS.map((ev) => (
-              <div
-                key={ev.id}
-                className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 shrink-0 mt-0.5">
-                    <ShieldAlert className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">
-                        {ev.eventType.replace(/_/g, " ")}
-                      </span>
-                      <Badge variant="danger" size="sm">
-                        {ev.severity}
-                      </Badge>
-                    </div>
-                    <p className="text-slate-600 mt-1 leading-relaxed">
-                      {ev.description}
-                    </p>
-                    <div className="text-[11px] text-slate-400 mt-1">
-                      Logged {formatDate(ev.timestamp)} • Action: {ev.status}
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => alert(`Inspection details for event ${ev.id}: Incident neutralised and reported.`)}
+            {securityEvents.length === 0 ? (
+              <EmptyState
+                icon={ShieldAlert}
+                title="Zero Security Incidents"
+                description="No prompt injection attacks, credential leak attempts, or anomalous behaviors detected."
+              />
+            ) : (
+              securityEvents.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
-                  Inspect Event
-                </Button>
-              </div>
-            ))}
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 shrink-0 mt-0.5">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">
+                          {ev.eventType.replace(/_/g, " ")}
+                        </span>
+                        <Badge variant="danger" size="sm">
+                          {ev.severity}
+                        </Badge>
+                      </div>
+                      <p className="text-slate-600 mt-1 leading-relaxed">
+                        {ev.description}
+                      </p>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Logged {formatDate(ev.timestamp)} • Action: {ev.status}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => alert(`Inspection details for event ${ev.id}: Incident neutralised and reported.`)}
+                  >
+                    Inspect Event
+                  </Button>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       )}
@@ -312,7 +318,14 @@ export default function SecurityCenterPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {MOCK_AUDIT_LOGS.map((log) => (
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
+                      No cryptographic audit records yet. All platform actions are recorded automatically.
+                    </td>
+                  </tr>
+                ) : (
+                  auditLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/80 transition">
                     <td className="px-5 py-3 whitespace-nowrap text-slate-600">
                       {formatDate(log.timestamp)}
@@ -342,7 +355,8 @@ export default function SecurityCenterPage() {
                       {log.integrityHash.substring(0, 24)}...
                     </td>
                   </tr>
-                ))}
+                ))
+              )}
               </tbody>
             </table>
           </div>

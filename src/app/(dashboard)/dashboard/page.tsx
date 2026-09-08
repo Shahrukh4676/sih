@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -27,28 +27,42 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/Badge";
 import { StatusIndicator } from "@/components/ui/EmptyState";
-import {
-  MOCK_USER,
-  MOCK_ORGANIZATION,
-  MOCK_CONTENTS,
-  MOCK_APPROVALS,
-  MOCK_SOCIAL_CONNECTIONS,
-} from "@/lib/mock-data";
+import { Content } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
 export default function DashboardPage() {
-  const { userProfile } = useAuth();
-  const userName = userProfile?.displayName || MOCK_USER.displayName;
-  const orgName = userProfile?.organizationId || MOCK_ORGANIZATION.name;
+  const { userProfile, organization } = useAuth();
+  const userName = userProfile?.displayName || userProfile?.email?.split("@")[0] || "User";
+  const orgName = organization?.name || userProfile?.organizationId || "Primary Organization";
+  const organizationId = userProfile?.organizationId || "org_primary";
 
-  const pendingApprovalsCount = MOCK_APPROVALS.filter(
-    (a) => a.status === "PENDING"
-  ).length;
-  const publishedCount = MOCK_CONTENTS.filter(
+  const [contents, setContents] = useState<Content[]>([]);
+  const [contentsLoading, setContentsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/content?organizationId=${organizationId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.contents) {
+          setContents(data.contents);
+        }
+      })
+      .catch((err) => console.error("Error loading dashboard contents:", err))
+      .finally(() => setContentsLoading(false));
+  }, [organizationId]);
+
+  const pendingApprovals = contents.filter(
+    (c) =>
+      c.status === "AWAITING_APPROVAL" ||
+      c.status === "SECURITY_REVIEW" ||
+      c.status === "GENERATED"
+  );
+  const pendingApprovalsCount = pendingApprovals.length;
+  const publishedCount = contents.filter(
     (c) => c.status === "PUBLISHED"
   ).length;
-  const generatedCount = MOCK_CONTENTS.length;
+  const generatedCount = contents.length;
 
   const pipelineStages = [
     { label: "Sources", count: 8, status: "Ingested & Indexed", active: false },
@@ -231,46 +245,57 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {MOCK_CONTENTS.slice(0, 5).map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                      <td className="px-5 py-3 font-medium text-slate-900 max-w-xs truncate">
-                        <div className="truncate font-semibold">{item.title}</div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          Org ID: {item.organizationId}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="neutral" size="sm">
-                          {item.outputFormat.replace(/_/g, " ")}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          variant={
-                            item.status === "PUBLISHED"
-                              ? "success"
-                              : item.status === "AWAITING_APPROVAL"
-                              ? "warning"
-                              : "brand"
-                          }
-                          size="sm"
-                          dot
-                        >
-                          {item.status.replace(/_/g, " ")}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                        {formatRelativeTime(item.createdAt)}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <Link href={`/content/${item.id}`}>
-                          <Button variant="ghost" size="xs">
-                            View
-                          </Button>
-                        </Link>
+                  {contents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
+                        {contentsLoading ? "Loading recent artefacts..." : "No artefacts generated yet. Create your first in the Studio."}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    contents.slice(0, 5).map((item) => {
+                      const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-5 py-3 font-medium text-slate-900 max-w-xs truncate">
+                            <div className="truncate font-semibold">{item.title}</div>
+                            <div className="text-[11px] text-slate-400 truncate">
+                              ID: {item.id}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="neutral" size="sm">
+                              {formatLabel}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={
+                                item.status === "PUBLISHED"
+                                  ? "success"
+                                  : item.status === "AWAITING_APPROVAL"
+                                  ? "warning"
+                                  : "brand"
+                              }
+                              size="sm"
+                              dot
+                            >
+                              {item.status.replace(/_/g, " ")}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                            {formatRelativeTime(item.createdAt)}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <Link href={`/content/${item.id}`}>
+                              <Button variant="ghost" size="xs">
+                                View
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -294,14 +319,14 @@ export default function DashboardPage() {
               </Link>
             </CardHeader>
             <div className="p-5 space-y-3">
-              {MOCK_APPROVALS.map((approval) => {
-                const targetContent = MOCK_CONTENTS.find((c) => c.id === approval.contentId);
-                const title = targetContent?.title || `Content Item #${approval.contentId}`;
-                const submitter = approval.reviewerName || "System Engine";
-
-                return (
+              {pendingApprovals.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  {contentsLoading ? "Checking approvals..." : "All approvals are clear. No pending items."}
+                </div>
+              ) : (
+                pendingApprovals.slice(0, 5).map((item) => (
                   <div
-                    key={approval.id}
+                    key={item.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-white hover:border-slate-300 transition gap-3"
                   >
                     <div className="flex items-start gap-3">
@@ -310,10 +335,10 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <div className="font-semibold text-xs text-slate-900">
-                          {title}
+                          {item.title}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
-                          <span>Reviewer: {submitter}</span>
+                          <span>Status: {item.status.replace(/_/g, " ")}</span>
                           <span>•</span>
                           <span className="text-amber-700 font-medium">
                             Strict Review Policy
@@ -323,7 +348,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <Link href={`/content/${approval.contentId}`}>
+                      <Link href={`/content/${item.id}`}>
                         <Button variant="outline" size="xs">
                           Inspect
                         </Button>
@@ -335,8 +360,8 @@ export default function DashboardPage() {
                       </Link>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
           </Card>
         </div>

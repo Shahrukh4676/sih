@@ -162,23 +162,45 @@ export async function appendContentVersion(
   }
 }
 
-export async function getContentByOrg(organizationId: string): Promise<Content[]> {
+export async function getContentByOrg(
+  organizationId: string,
+  statusFilter?: string
+): Promise<Content[]> {
+  const filterByStatus = (items: Content[]): Content[] => {
+    if (!statusFilter || statusFilter === "ALL") return items;
+    const allowed = statusFilter.split(",").map((s) => s.trim().toUpperCase());
+    return items.filter((item) => allowed.includes(item.status.toUpperCase()));
+  };
+
+  const sortByDateDesc = (items: Content[]): Content[] => {
+    return items.sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  };
+
   try {
     const q = query(
       collection(db, CONTENT_COLLECTION),
-      where("organizationId", "==", organizationId),
-      orderBy("createdAt", "desc")
+      where("organizationId", "==", organizationId)
     );
     const snap = await getDocs(q);
-    const results = snap.docs.map((d) => ({ id: d.id, contentId: d.id, ...d.data() } as Content));
-    if (results.length > 0) return results;
+    const results = snap.docs.map(
+      (d) => ({ id: d.id, contentId: d.id, ...d.data() } as Content)
+    );
+    if (results.length > 0) {
+      const sorted = sortByDateDesc(results);
+      return filterByStatus(sorted);
+    }
   } catch (error) {
     console.warn("[Content Service] Firestore query notice:", error);
   }
 
-  return Array.from(inMemoryContentCache.values()).filter(
+  const cached = Array.from(inMemoryContentCache.values()).filter(
     (c) => c.organizationId === organizationId
   );
+  return filterByStatus(sortByDateDesc(cached));
 }
 
 export async function updateContentStatus(
@@ -193,10 +215,14 @@ export async function updateContentStatus(
 
   try {
     const ref = doc(db, CONTENT_COLLECTION, contentId);
-    await updateDoc(ref, cleanForFirestore({
-      status,
-      updatedAt: serverTimestamp()
-    }));
+    await setDoc(
+      ref,
+      cleanForFirestore({
+        status,
+        updatedAt: serverTimestamp(),
+      }),
+      { merge: true }
+    );
     return true;
   } catch (error) {
     console.warn("[Content Service] Firestore status update notice:", error);

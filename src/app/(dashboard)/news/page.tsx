@@ -14,7 +14,6 @@ import {
   Check,
   Info,
 } from "lucide-react";
-import { MOCK_NEWS_ITEMS } from "@/lib/mock-data";
 import { formatRelativeTime } from "@/lib/utils";
 import { NewsItem } from "@/types";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +25,7 @@ export default function NewsIntelligencePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [newsList, setNewsList] = useState<NewsItem[]>(MOCK_NEWS_ITEMS);
+  const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [savedTopics] = useState<string[]>([
     "Cybersecurity Zero-Days",
     "AI Governance & Safety",

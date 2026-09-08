@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   UserCheck,
@@ -18,8 +18,8 @@ import {
   Sparkles,
   Check,
 } from "lucide-react";
-import { MOCK_CONTENTS } from "@/lib/mock-data";
 import { Content } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -29,57 +29,112 @@ import { Textarea } from "@/components/ui/Input";
 import { formatRelativeTime } from "@/lib/utils";
 
 export default function ApprovalCenterPage() {
-  const [items, setItems] = useState<Content[]>(
-    MOCK_CONTENTS.filter(
-      (c) => c.status === "AWAITING_APPROVAL" || c.status === "SECURITY_REVIEW"
-    )
-  );
-  const [activeItem, setActiveItem] = useState<Content | null>(items[0] || null);
-  const [editableBody, setEditableBody] = useState<string>(
-    items[0]?.currentVersion.body || ""
-  );
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+
+  const [items, setItems] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeItem, setActiveItem] = useState<Content | null>(null);
+  const [editableBody, setEditableBody] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [rejectReasonModal, setRejectReasonModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const fetchApprovals = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `/api/content?organizationId=${organizationId}&status=AWAITING_APPROVAL,SECURITY_REVIEW,GENERATED`
+      );
+      const data = await res.json();
+      if (data.success && data.contents) {
+        setItems(data.contents);
+        if (data.contents.length > 0) {
+          setActiveItem(data.contents[0]);
+          const body =
+            data.contents[0].currentVersion?.body ||
+            data.contents[0].content ||
+            "";
+          setEditableBody(body);
+        } else {
+          setActiveItem(null);
+          setEditableBody("");
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching approvals queue:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    fetchApprovals();
+  }, [fetchApprovals]);
 
   const handleApprove = async (id: string) => {
     if (!activeItem) return;
     const itemTitle = activeItem.title;
     const contentId = activeItem.id;
 
-    // Trigger backend approval & n8n orchestration asynchronously
-    fetch(`/api/approvals/appr_${contentId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentId,
-        status: "APPROVED",
-        reviewerId: "user_governance_lead",
-        reviewerName: "Governance Officer",
-        comments: "Approved via Approval Center",
-      }),
-    }).catch((err) => console.error("Error submitting approval:", err));
+    try {
+      await fetch(`/api/approvals/appr_${contentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentId,
+          status: "APPROVED",
+          reviewerId: userProfile?.uid || "user_governance_lead",
+          reviewerName: userProfile?.displayName || "Governance Officer",
+          comments: "Approved via Approval Center",
+        }),
+      });
+      setSuccessToast(`"${itemTitle}" approved! Available in Publishing Center.`);
+    } catch (err) {
+      console.error("Error submitting approval:", err);
+    }
 
-    setSuccessToast(`"${itemTitle}" approved! Dispatched to n8n Cloud orchestration.`);
-    setItems((prev) => prev.filter((i) => i.id !== id));
     const remaining = items.filter((i) => i.id !== id);
+    setItems(remaining);
     setActiveItem(remaining[0] || null);
     if (remaining[0]) {
-      setEditableBody(remaining[0].currentVersion.body);
+      setEditableBody(
+        remaining[0].currentVersion?.body || remaining[0].content || ""
+      );
     }
     setTimeout(() => setSuccessToast(null), 4000);
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!activeItem || !rejectReason.trim()) return;
+    const contentId = activeItem.id;
+
+    try {
+      await fetch(`/api/approvals/appr_${contentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentId,
+          status: "REJECTED",
+          reviewerId: userProfile?.uid || "user_governance_lead",
+          reviewerName: userProfile?.displayName || "Governance Officer",
+          comments: rejectReason,
+        }),
+      });
+    } catch (err) {
+      console.error("Error submitting rejection:", err);
+    }
+
     setSuccessToast(`"${activeItem.title}" rejected and logged to audit trail.`);
     setRejectReasonModal(false);
-    setItems((prev) => prev.filter((i) => i.id !== activeItem.id));
     const remaining = items.filter((i) => i.id !== activeItem.id);
+    setItems(remaining);
     setActiveItem(remaining[0] || null);
     if (remaining[0]) {
-      setEditableBody(remaining[0].currentVersion.body);
+      setEditableBody(
+        remaining[0].currentVersion?.body || remaining[0].content || ""
+      );
     }
     setRejectReason("");
     setTimeout(() => setSuccessToast(null), 3000);
@@ -141,7 +196,7 @@ export default function ApprovalCenterPage() {
                   key={item.id}
                   onClick={() => {
                     setActiveItem(item);
-                    setEditableBody(item.currentVersion.body);
+                    setEditableBody(item.currentVersion?.body || item.content || "");
                     setIsEditing(false);
                   }}
                   className={`p-4 rounded-xl border transition cursor-pointer flex flex-col gap-2 ${
@@ -152,7 +207,7 @@ export default function ApprovalCenterPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <Badge variant="neutral" size="sm">
-                      {item.outputFormat.replace(/_/g, " ")}
+                      {item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content"}
                     </Badge>
                     <Badge
                       variant={
@@ -186,7 +241,7 @@ export default function ApprovalCenterPage() {
                       Artefact Inspection &amp; Signoff
                     </CardTitle>
                     <p className="text-xs text-slate-500">
-                      Format: {activeItem.outputFormat.replace(/_/g, " ")} • Target: {activeItem.targetAudience}
+                      Format: {activeItem.outputFormat ? activeItem.outputFormat.replace(/_/g, " ") : "Content"} • Target: {activeItem.targetAudience}
                     </p>
                   </div>
                   <Badge variant="verified" size="sm" dot>

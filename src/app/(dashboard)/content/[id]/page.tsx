@@ -25,7 +25,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { MOCK_CONTENTS } from "@/lib/mock-data";
 import { Content, VisualAsset } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { formatRelativeTime } from "@/lib/utils";
@@ -40,33 +39,38 @@ export default function ContentDetailPage() {
     "CONTENT" | "VISUALS" | "SOURCE" | "VERSIONS" | "SECURITY"
   >("CONTENT");
   const [content, setContent] = useState<Content | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [visualAsset, setVisualAsset] = useState<VisualAsset | null>(null);
   const [copied, setCopied] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
-    // Find in mock data or fetch from API
-    const found = MOCK_CONTENTS.find((c) => c.id === contentId);
-    if (found) {
-      setContent(found);
-    } else {
-      // Try fetching from content API
-      fetch(`/api/content/${contentId}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.content) {
-            setContent(data.content);
-          } else if (MOCK_CONTENTS[0]) {
-            // fallback to first item for presentation
-            setContent({ ...MOCK_CONTENTS[0], id: contentId });
-          }
-        })
-        .catch(() => {
-          if (MOCK_CONTENTS[0]) {
-            setContent({ ...MOCK_CONTENTS[0], id: contentId });
-          }
-        });
-    }
+    if (!contentId) return;
+    setLoading(true);
+    setNotFound(false);
+
+    // Fetch from real content API
+    fetch(`/api/content/${contentId}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Content not found");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.content) {
+          setContent(data.content);
+        } else {
+          setNotFound(true);
+        }
+      })
+      .catch(() => {
+        setNotFound(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     // Try fetching visual assets
     fetch(`/api/content/${contentId}/visuals`)
@@ -79,23 +83,43 @@ export default function ContentDetailPage() {
       .catch(() => {});
   }, [contentId]);
 
-  if (!content) {
+  if (notFound) {
     return (
-      <div className="py-12 text-center text-xs text-slate-500">
+      <div className="space-y-6 py-12 max-w-xl mx-auto">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-8 text-center space-y-4">
+          <h2 className="text-base font-bold text-slate-900">Content Artefact Not Found</h2>
+          <p className="text-xs text-slate-500">
+            The requested content record <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">{contentId}</code> does not exist in the database.
+          </p>
+          <Link href="/content">
+            <Button variant="outline" size="sm">
+              Return to Content Library
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !content) {
+    return (
+      <div className="py-16 text-center text-xs text-slate-500">
         Loading content artefact workspace...
       </div>
     );
   }
 
+  const bodyText = content.currentVersion?.body || content.content || "";
+
   const handleCopy = () => {
-    if (!content.currentVersion.body) return;
-    navigator.clipboard.writeText(content.currentVersion.body);
+    if (!bodyText) return;
+    navigator.clipboard.writeText(bodyText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const wordCount = content.currentVersion.body.trim().split(/\s+/).filter(Boolean).length;
-  const charCount = content.currentVersion.body.length;
+  const wordCount = bodyText.trim().split(/\s+/).filter(Boolean).length;
+  const charCount = bodyText.length;
 
   return (
     <div className="space-y-6 pb-16">

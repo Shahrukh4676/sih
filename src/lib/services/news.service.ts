@@ -5,7 +5,6 @@
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { NewsItem } from "@/types";
-import { MOCK_NEWS_ITEMS } from "../mock-data";
 
 export const NEWS_COLLECTION = "newsItems";
 
@@ -20,11 +19,10 @@ export async function getNewsFeed(limitCount: number = 20): Promise<NewsItem[]> 
     if (!snap.empty) {
       return snap.docs.map((d) => ({ id: d.id, ...d.data() } as NewsItem));
     }
-    // Fallback to initial intelligence feed
-    return MOCK_NEWS_ITEMS;
+    return [];
   } catch (error) {
-    console.warn("[News Service] Firestore empty or notice, falling back to intelligence cache:", error);
-    return MOCK_NEWS_ITEMS;
+    console.warn("[News Service] Firestore empty or notice:", error);
+    return [];
   }
 }
 
