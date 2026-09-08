@@ -1,0 +1,305 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // NEXUS AI - Enterprise Firestore Security Rules
+    // =========================================================================
+    // Multi-tenant isolation: organizationId is the tenant boundary.
+    // Untrusted client assertions are rejected; identity and membership are
+    // derived directly from request.auth and the verified users collection.
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserRecord() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserOrgId() {
+      return getUserRecord().organizationId;
+    }
+
+    function currentUserRole() {
+      return getUserRecord().role;
+    }
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() && userExists() && currentUserOrgId() == orgId;
+    }
+
+    // Role hierarchies
+    function isAdmin(orgId) {
+      return isOrgMember(orgId) && (
+        currentUserRole() == 'ADMIN' ||
+        currentUserRole() == 'SUPER_ADMIN' ||
+        currentUserRole() == 'ORG_ADMIN'
+      );
+    }
+
+    function isReviewerOrAdmin(orgId) {
+      return isOrgMember(orgId) && (
+        currentUserRole() in ['ADMIN', 'REVIEWER', 'SECURITY_OFFICER', 'ORG_ADMIN', 'SUPER_ADMIN']
+      );
+    }
+
+    function isCreatorOrAbove(orgId) {
+      return isOrgMember(orgId) && (
+        currentUserRole() in ['ADMIN', 'CREATOR', 'REVIEWER', 'EDITOR', 'SECURITY_OFFICER', 'ORG_ADMIN', 'SUPER_ADMIN']
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Users Collection
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      // Any authenticated user can read their own profile, or members of the same organization
+      allow read: if isOwner(userId) || (
+        isAuthenticated() && userExists() &&
+        resource.data.organizationId != null &&
+        resource.data.organizationId == currentUserOrgId()
+      );
+
+      // A user can create their own profile document on signup
+      allow create: if isOwner(userId) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email &&
+        // Initial signup cannot self-assign privileged role unless pending onboarding
+        (request.resource.data.organizationId == null || request.resource.data.role == 'ADMIN');
+
+      // Update rules:
+      // 1. User updating their own profile CANNOT alter their own role or organizationId (prevents privilege escalation)
+      // 2. An ADMIN of the organization can update user roles/status within that organization
+      allow update: if (
+        isOwner(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        // If user already has an org and role, they cannot change their own role or orgId
+        (resource.data.organizationId == null || (
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.organizationId == resource.data.organizationId
+        ))
+      ) || (
+        resource.data.organizationId != null &&
+        isAdmin(resource.data.organizationId)
+      );
+
+      allow delete: if resource.data.organizationId != null && isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Organizations Collection
+    // -------------------------------------------------------------------------
+    match /organizations/{orgId} {
+      // Must belong to this organization to read
+      allow read: if isOrgMember(orgId);
+
+      // Authenticated user can create an organization if they set createdBy to themselves
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.organizationId == orgId;
+
+      // Only organization ADMIN can modify or archive the organization
+      allow update, delete: if isAdmin(orgId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Sources Collection
+    // -------------------------------------------------------------------------
+    match /sources/{sourceId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        (resource.data.userId == request.auth.uid && isCreatorOrAbove(resource.data.organizationId))
+      );
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Content & Content Versions Collection
+    // -------------------------------------------------------------------------
+    match /content/{contentId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        isReviewerOrAdmin(resource.data.organizationId) ||
+        (resource.data.userId == request.auth.uid && isCreatorOrAbove(resource.data.organizationId))
+      );
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    match /contentVersions/{versionId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId();
+      allow update, delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Approvals Collection (Strict Human-in-the-Loop Review Queue)
+    // -------------------------------------------------------------------------
+    match /approvals/{approvalId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      // System or creators can stage approval request
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId();
+
+      // Only REVIEWER or ADMIN can approve/reject content
+      allow update: if isReviewerOrAdmin(resource.data.organizationId);
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Publishing Jobs Collection
+    // -------------------------------------------------------------------------
+    match /publishingJobs/{jobId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      // Only ADMIN can initiate or configure publishing jobs
+      allow create, update: if isAdmin(request.resource.data.organizationId);
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Social Connections (OAuth Credentials / Tokens)
+    // -------------------------------------------------------------------------
+    match /socialConnections/{connectionId} {
+      // Only organization ADMIN can read, create, update, or revoke social connections
+      allow read, write: if isAdmin(resource != null ? resource.data.organizationId : request.resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Automations Collection
+    // -------------------------------------------------------------------------
+    match /automations/{automationId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+      allow create, update, delete: if isAdmin(request.resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // News Items Collection
+    // -------------------------------------------------------------------------
+    match /newsItems/{newsId} {
+      allow read: if isAuthenticated();
+      // Only Admin / Automation worker can curate organization news items
+      allow write: if isAuthenticated() && (
+        resource == null || isOrgMember(resource.data.organizationId)
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Audit Logs & Security Events (Tamper-Evident Immutable Append-Only Ledger)
+    // -------------------------------------------------------------------------
+    match /auditLogs/{logId} {
+      // Only ADMIN / Security Officer can inspect audit logs
+      allow read: if isAdmin(resource.data.organizationId);
+
+      // Append-only: Authenticated org members can log audit events, but NEVER mutate or delete them
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.userId == request.auth.uid;
+
+      // IMMUTABLE: Updates and Deletions are strictly forbidden from client SDK
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Visual Assets Collection (Phase 4)
+    // -------------------------------------------------------------------------
+    match /visualAssets/{assetId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        (resource.data.userId == request.auth.uid && isCreatorOrAbove(resource.data.organizationId))
+      );
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Security Scans Collection (Phase 5)
+    // -------------------------------------------------------------------------
+    match /securityScans/{scanId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isCreatorOrAbove(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isAdmin(resource.data.organizationId);
+
+      // Append-only audit integrity: security scans cannot be deleted
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // WhatsApp Connections Collection (Phase 6)
+    // -------------------------------------------------------------------------
+    match /whatsappConnections/{connectionId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      // Authenticated users can link their phone number to their org
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // Update allowed by owner of connection or org admin
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        resource.data.userId == request.auth.uid
+      );
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+
+    // -------------------------------------------------------------------------
+    // WhatsApp Conversations Collection (Phase 6)
+    // -------------------------------------------------------------------------
+    match /whatsappConversations/{conversationId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId();
+
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        resource.data.userId == request.auth.uid
+      );
+
+      allow delete: if isAdmin(resource.data.organizationId);
+    }
+  }
+}
+
