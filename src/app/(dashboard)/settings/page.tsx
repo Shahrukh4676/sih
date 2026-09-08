@@ -598,7 +598,7 @@ export default function SettingsPage() {
                 </div>
 
                 {[
-                  { name: "Google Gemini REST API", status: "Active (Free Tier)", desc: "Configured via GEMINI_API_KEY environment variable" },
+                  { name: "Google Gemini REST API", status: "Active (Free Tier)", desc: "Configured via server environment" },
                   { name: "Local Ollama Provider", status: "Ready", desc: "Listens on localhost:11434 (llama3.2)" },
                   { name: "Cloud Firestore & Storage", status: "Connected", desc: "Multi-tenant project sih-5172e" },
                 ].map((item) => (

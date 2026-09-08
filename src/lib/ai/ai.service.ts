@@ -6,6 +6,8 @@
 // Enforces ₹0 budget policy. Never logs secrets or API credentials.
 // ==============================================================================
 
+import "server-only";
+import { getSecret } from "@/lib/server-env";
 import {
   AIProvider,
   StructuredSourceIntelligence,
@@ -17,19 +19,28 @@ import { GeminiProvider } from "./gemini.provider";
 import { OllamaProvider } from "./ollama.provider";
 
 class AIServiceRegistry {
-  private gemini: GeminiProvider;
-  private ollama: OllamaProvider;
+  private _gemini?: GeminiProvider;
+  private _ollama?: OllamaProvider;
+
+  private get gemini(): GeminiProvider {
+    if (!this._gemini) this._gemini = new GeminiProvider();
+    return this._gemini;
+  }
+
+  private get ollama(): OllamaProvider {
+    if (!this._ollama) this._ollama = new OllamaProvider();
+    return this._ollama;
+  }
 
   constructor() {
-    this.gemini = new GeminiProvider();
-    this.ollama = new OllamaProvider();
+    // Empty constructor ensures zero module-load evaluation overhead
   }
 
   /**
    * Resolves the active provider according to AI_PROVIDER environment variable
    */
   public getActiveProvider(): AIProvider {
-    const preferred = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+    const preferred = getSecret("AI_PROVIDER", "gemini").toLowerCase();
     if (preferred === "ollama") {
       return this.ollama;
     }
@@ -44,7 +55,7 @@ class AIServiceRegistry {
     active: ProviderHealth;
     fallbackAvailable: boolean;
   }> {
-    const configured = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+    const configured = getSecret("AI_PROVIDER", "gemini").toLowerCase();
     const primary = this.getActiveProvider();
     const health = await primary.healthCheck();
 

@@ -6,6 +6,9 @@
 // Reference: https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin
 // ==============================================================================
 
+import "server-only";
+import { getSecret } from "@/lib/server-env";
+
 export interface LinkedInMemberProfile {
   id: string; // sub / member ID
   urn: string; // urn:li:person:<subId>
@@ -31,18 +34,27 @@ export interface LinkedInPublishResult {
 }
 
 export class LinkedInClient {
-  private clientId: string;
-  private clientSecret: string;
-  private redirectUri: string;
-  private apiVersion: string;
+  private get clientId(): string {
+    return getSecret("LINKEDIN_CLIENT_ID");
+  }
+
+  private get clientSecret(): string {
+    return getSecret("LINKEDIN_CLIENT_SECRET");
+  }
+
+  private get redirectUri(): string {
+    return getSecret(
+      "LINKEDIN_REDIRECT_URI",
+      "https://automatedplatform.netlify.app/api/integrations/linkedin/callback"
+    );
+  }
+
+  private get apiVersion(): string {
+    return getSecret("LINKEDIN_API_VERSION", "202502");
+  }
 
   constructor() {
-    this.clientId = process.env.LINKEDIN_CLIENT_ID || "";
-    this.clientSecret = process.env.LINKEDIN_CLIENT_SECRET || "";
-    this.redirectUri =
-      process.env.LINKEDIN_REDIRECT_URI ||
-      "https://automatedplatform.netlify.app/api/integrations/linkedin/callback";
-    this.apiVersion = process.env.LINKEDIN_API_VERSION || "202502";
+    // Empty constructor ensures zero environment reads or evaluations occur at module load / build time
   }
 
   public isConfigured(): boolean {

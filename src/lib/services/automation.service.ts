@@ -7,6 +7,7 @@
 //          -> Audit Logging & UI State Reflection
 // ==============================================================================
 
+import "server-only";
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { AutomationEvent, AutomationEventStatus } from "@/types";

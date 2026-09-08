@@ -5,6 +5,8 @@
 // with built-in simulation fallback for offline local testing and hackathon verification.
 // ==============================================================================
 
+import "server-only";
+import { getSecret } from "@/lib/server-env";
 import { MetaButton, MetaSendResult } from "./whatsapp-types";
 
 export interface OutboundSimulatedMessage {
@@ -23,16 +25,22 @@ export interface OutboundSimulatedMessage {
 const simulatedOutbox: OutboundSimulatedMessage[] = [];
 
 export class WhatsAppClient {
-  private accessToken: string;
-  private phoneNumberId: string;
-  private apiVersion: string;
-  private baseUrl: string;
+  private apiVersion = "v21.0";
+
+  private get accessToken(): string {
+    return getSecret("WHATSAPP_ACCESS_TOKEN");
+  }
+
+  private get phoneNumberId(): string {
+    return getSecret("WHATSAPP_PHONE_NUMBER_ID");
+  }
+
+  private get baseUrl(): string {
+    return `https://graph.facebook.com/${this.apiVersion}`;
+  }
 
   constructor() {
-    this.accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "";
-    this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
-    this.apiVersion = "v21.0";
-    this.baseUrl = `https://graph.facebook.com/${this.apiVersion}`;
+    // Empty constructor avoids reading process.env at module load / build time
   }
 
   public isConfigured(): boolean {

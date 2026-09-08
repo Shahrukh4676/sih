@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { LinkedInService } from "@/lib/services/linkedin.service";
 import { defaultLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;

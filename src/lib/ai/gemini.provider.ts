@@ -1,7 +1,5 @@
-// ==============================================================================
-// NEXUS AI - Google Gemini Provider (Free Tier / ₹0 Budget)
-// ==============================================================================
-
+import "server-only";
+import { getSecret } from "@/lib/server-env";
 import {
   AIProvider,
   StructuredSourceIntelligence,
@@ -14,13 +12,18 @@ import { buildTransformationPrompt } from "./prompts/transformation.prompts";
 
 export class GeminiProvider implements AIProvider {
   public readonly name = "gemini";
-  private readonly apiKey: string;
-  private readonly model: string;
   private readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
+  private get apiKey(): string {
+    return getSecret("GEMINI_API_KEY");
+  }
+
+  private get model(): string {
+    return getSecret("GEMINI_MODEL", "gemini-1.5-flash");
+  }
+
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || "";
-    this.model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    // Empty constructor ensures zero environment reads or evaluations occur at module load / build time
   }
 
   public async healthCheck(): Promise<ProviderHealth> {
@@ -29,7 +32,7 @@ export class GeminiProvider implements AIProvider {
         provider: this.name,
         available: false,
         model: this.model,
-        error: "GEMINI_API_KEY is not configured in server environment."
+        error: "Gemini API key is not configured in server environment."
       };
     }
 
@@ -72,7 +75,7 @@ export class GeminiProvider implements AIProvider {
     metadata?: Record<string, unknown>
   ): Promise<StructuredSourceIntelligence> {
     if (!this.apiKey) {
-      throw new Error("[Gemini Provider] Missing GEMINI_API_KEY. Configure in environment variables.");
+      throw new Error("[Gemini Provider] Missing Gemini API key. Configure in server environment variables.");
     }
 
     const prompt = buildSourceAnalysisPrompt(text, metadata);
@@ -104,7 +107,7 @@ export class GeminiProvider implements AIProvider {
     options: TransformationOptions
   ): Promise<TransformationResult> {
     if (!this.apiKey) {
-      throw new Error("[Gemini Provider] Missing GEMINI_API_KEY. Configure in environment variables.");
+      throw new Error("[Gemini Provider] Missing Gemini API key. Configure in server environment variables.");
     }
 
     const prompt = buildTransformationPrompt(sourceAnalysis, options);

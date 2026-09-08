@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AutomationService } from "@/lib/services/automation.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.json();

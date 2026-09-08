@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { AIService } from "@/lib/ai/ai.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const status = await AIService.getStatus();

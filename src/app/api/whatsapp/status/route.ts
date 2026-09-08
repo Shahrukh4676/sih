@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WhatsAppService } from "@/lib/services/whatsapp.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);

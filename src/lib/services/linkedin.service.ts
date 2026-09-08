@@ -5,6 +5,7 @@
 // multi-gate publishing validation, Posts API execution, and audit logging.
 // ==============================================================================
 
+import "server-only";
 import crypto from "crypto";
 import {
   doc,

@@ -5,6 +5,9 @@
 import { NextResponse } from "next/server";
 import { StorageService } from "@/lib/services/storage.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   const storageAvailable = await StorageService.isStorageAvailable();
 

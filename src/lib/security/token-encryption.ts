@@ -5,7 +5,9 @@
 // stored at rest. Ensures zero plaintext exposure in logs, APIs, or databases.
 // ==============================================================================
 
+import "server-only";
 import crypto from "crypto";
+import { getSecret } from "@/lib/server-env";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // Standard 96-bit IV for GCM
@@ -16,9 +18,9 @@ const AUTH_TAG_LENGTH = 16; // Standard 128-bit authentication tag
  */
 function getEncryptionKey(): Buffer {
   const secret =
-    process.env.LINKEDIN_ENCRYPTION_KEY ||
-    process.env.ENCRYPTION_KEY ||
-    process.env.NEXTAUTH_SECRET ||
+    getSecret("LINKEDIN_ENCRYPTION_KEY") ||
+    getSecret("ENCRYPTION_KEY") ||
+    getSecret("NEXTAUTH_SECRET") ||
     "nexus-ai-secure-token-encryption-master-salt-2026";
 
   return crypto.createHash("sha256").update(secret).digest();

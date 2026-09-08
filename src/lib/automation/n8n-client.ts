@@ -6,15 +6,25 @@
 // Webhook: https://shahrukh24.app.n8n.cloud/webhook/nexus/content-approved
 // Enforces ₹0 budget, shared-secret header auth, timeout handling, and resilience.
 // ==============================================================================
+import "server-only";
+import { getSecret, getServerEnv } from "@/lib/server-env";
 
 export interface ApprovedContentTriggerPayload {
-  event: "CONTENT_APPROVED";
+  event?: "CONTENT_APPROVED" | string;
   eventId: string;
   organizationId: string;
-  userId: string;
+  userId?: string;
   contentId: string;
   versionId: string | number;
-  channel: string;
+  channel?: string;
+  channels?: string[];
+  approvedBy?: string;
+  sourceType?: string;
+  sourceTitle?: string;
+  securityDecision?: string;
+  riskScore?: number;
+  triggerSource?: "MANUAL" | "AUTO_DISPATCH" | "WHATSAPP_COMMAND";
+  nexusBaseUrl?: string;
   timestamp: string;
 }
 
@@ -28,34 +38,30 @@ export interface N8nTriggerResult {
 }
 
 export class N8nClient {
-  private baseUrl: string;
-  private webhookUrl: string;
-  private webhookSecret: string;
-  private callbackSecret: string;
-
   constructor() {
-    this.baseUrl = process.env.N8N_BASE_URL || "https://shahrukh24.app.n8n.cloud";
-    this.webhookUrl =
-      process.env.N8N_CONTENT_APPROVED_WEBHOOK ||
-      "https://shahrukh24.app.n8n.cloud/webhook/nexus/content-approved";
-    this.webhookSecret = process.env.N8N_WEBHOOK_SECRET || "";
-    this.callbackSecret = process.env.N8N_CALLBACK_SECRET || "";
+    // Empty constructor ensures zero environment reads or evaluations occur at module load / build time
   }
 
   public isConfigured(): boolean {
-    return Boolean(this.webhookUrl.trim() && (this.webhookSecret.trim() || process.env.NODE_ENV === "development"));
+    const hookUrl = this.getWebhookUrl();
+    const secret = this.getWebhookSecret();
+    const nodeEnv = getServerEnv("NODE_ENV");
+    return Boolean(hookUrl.trim() && (secret.trim() || nodeEnv === "development"));
   }
 
   public getWebhookUrl(): string {
-    return this.webhookUrl;
+    return getSecret(
+      "N8N_CONTENT_APPROVED_WEBHOOK",
+      "https://shahrukh24.app.n8n.cloud/webhook/nexus/content-approved"
+    );
   }
 
   public getBaseUrl(): string {
-    return this.baseUrl;
+    return getSecret("N8N_BASE_URL", "https://shahrukh24.app.n8n.cloud");
   }
 
   public getWorkflowId(): string {
-    return process.env.N8N_WORKFLOW_ID || "uunidN8XWaIcA5xY";
+    return getSecret("N8N_WORKFLOW_ID", "uunidN8XWaIcA5xY");
   }
 
   public getWorkflowName(): string {
@@ -63,15 +69,15 @@ export class N8nClient {
   }
 
   public isSimulationMode(): boolean {
-    return process.env.N8N_SIMULATION_MODE === "true";
+    return getSecret("N8N_SIMULATION_MODE") === "true";
   }
 
   public getCallbackSecret(): string {
-    return this.callbackSecret || process.env.N8N_CALLBACK_SECRET || "nexus_n8n_cloud_callback_secret_2025";
+    return getSecret("N8N_CALLBACK_SECRET", "nexus_n8n_cloud_callback_secret_2025");
   }
 
   public getWebhookSecret(): string {
-    return this.webhookSecret || process.env.N8N_WEBHOOK_SECRET || "nexus_n8n_shared_secret_default";
+    return getSecret("N8N_WEBHOOK_SECRET", "nexus_n8n_shared_secret_default");
   }
 
   public buildHeaders(): Record<string, string> {
@@ -89,7 +95,8 @@ export class N8nClient {
    * Health check for n8n Cloud base URL
    */
   public async checkHealth(): Promise<{ configured: boolean; reachable: boolean; webhookUrl: string }> {
-    const configured = Boolean(this.webhookUrl);
+    const webhookUrl = this.getWebhookUrl();
+    const configured = Boolean(webhookUrl);
     let reachable = false;
 
     try {
@@ -97,7 +104,7 @@ export class N8nClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const res = await fetch(this.baseUrl, {
+      const res = await fetch(this.getBaseUrl(), {
         method: "GET",
         signal: controller.signal,
       }).catch(() => null);
@@ -114,7 +121,7 @@ export class N8nClient {
     return {
       configured,
       reachable,
-      webhookUrl: this.webhookUrl,
+      webhookUrl,
     };
   }
 
@@ -124,9 +131,11 @@ export class N8nClient {
    */
   public async triggerN8nWorkflow(payload: ApprovedContentTriggerPayload): Promise<N8nTriggerResult> {
     const nowIso = new Date().toISOString();
+    const webhookSecret = this.getWebhookSecret();
+    const nodeEnv = getServerEnv("NODE_ENV");
 
     // In offline test environments or if simulation flag is on:
-    if (process.env.N8N_SIMULATION_MODE === "true" || (!this.webhookSecret && process.env.NODE_ENV === "test")) {
+    if (this.isSimulationMode() || (!webhookSecret && nodeEnv === "test")) {
       console.log(`[N8nClient] Simulation trigger for event ${payload.eventId} on ${payload.contentId}`);
       return {
         success: true,
@@ -141,7 +150,7 @@ export class N8nClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      const secret = this.webhookSecret || "nexus_n8n_shared_secret_default";
+      const secret = this.getWebhookSecret();
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -151,7 +160,7 @@ export class N8nClient {
         Authorization: `Bearer ${secret}`,
       };
 
-      const response = await fetch(this.webhookUrl, {
+      const response = await fetch(this.getWebhookUrl(), {
         method: "POST",
         headers,
         body: JSON.stringify(payload),

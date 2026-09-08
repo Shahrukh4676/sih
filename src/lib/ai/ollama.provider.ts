@@ -1,7 +1,5 @@
-// ==============================================================================
-// NEXUS AI - Ollama Local Offline Provider (Phase 3)
-// ==============================================================================
-
+import "server-only";
+import { getSecret } from "@/lib/server-env";
 import {
   AIProvider,
   StructuredSourceIntelligence,
@@ -14,12 +12,17 @@ import { buildTransformationPrompt } from "./prompts/transformation.prompts";
 
 export class OllamaProvider implements AIProvider {
   public readonly name = "ollama";
-  private readonly baseUrl: string;
-  private readonly model: string;
+
+  private get baseUrl(): string {
+    return getSecret("OLLAMA_BASE_URL", "http://localhost:11434").replace(/\/$/, "");
+  }
+
+  private get model(): string {
+    return getSecret("OLLAMA_MODEL", "llama3.2");
+  }
 
   constructor() {
-    this.baseUrl = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    this.model = process.env.OLLAMA_MODEL || "llama3.2";
+    // Empty constructor prevents build-time environment access
   }
 
   public async healthCheck(): Promise<ProviderHealth> {

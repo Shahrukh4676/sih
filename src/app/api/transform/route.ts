@@ -5,6 +5,9 @@ import { AIService } from "@/lib/ai/ai.service";
 import { TransformationOptions, SupportedOutputFormat } from "@/lib/ai/types";
 import { SecurityEngine } from "@/lib/security/security-engine";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

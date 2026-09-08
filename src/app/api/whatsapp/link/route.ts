@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultWhatsAppUserLinkService } from "@/lib/whatsapp/whatsapp-user-link";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 /**
  * POST /api/whatsapp/link
  * Generates a short-lived, single-use linking code (e.g. NX-ABC123) for the authenticated user

@@ -6,6 +6,8 @@
 // ==============================================================================
 
 import crypto from "crypto";
+import "server-only";
+import { getSecret, hasSecret } from "@/lib/server-env";
 import { WhatsAppConnection, WhatsAppConversation } from "@/types";
 import { defaultWhatsAppClient } from "../whatsapp/whatsapp-client";
 import { defaultWhatsAppUserLinkService } from "../whatsapp/whatsapp-user-link";
@@ -26,7 +28,7 @@ export class WhatsAppService {
   }> {
     const configured = defaultWhatsAppClient.isConfigured();
     const phoneNumberId = defaultWhatsAppClient.getPhoneNumberId();
-    const webhookVerifyToken = Boolean(process.env.WHATSAPP_VERIFY_TOKEN);
+    const webhookVerifyToken = hasSecret("WHATSAPP_VERIFY_TOKEN");
 
     const connections = await defaultWhatsAppUserLinkService.listConnectionsByOrg(organizationId);
     const activeConns = connections.filter((c) => c.status === "ACTIVE");
@@ -96,7 +98,7 @@ export class WhatsAppService {
    * Meta Webhook X-Hub-Signature-256 validation
    */
   public static validateWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean {
-    const appSecret = process.env.WHATSAPP_APP_SECRET;
+    const appSecret = getSecret("WHATSAPP_APP_SECRET");
     if (!appSecret) {
       // In development or when app secret is not configured, pass validation
       return true;

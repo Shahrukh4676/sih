@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { defaultN8nClient } from "@/lib/automation/n8n-client";
 import { AutomationService } from "@/lib/services/automation.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const orgId = req.nextUrl.searchParams.get("organizationId") || "org_nexus_default";
