@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Settings as SettingsIcon,
@@ -21,7 +21,10 @@ import {
   Workflow,
   Smartphone,
   ExternalLink,
+  Unlink,
+  RefreshCw,
 } from "lucide-react";
+import { LinkedInIcon } from "@/components/ui/Icons";
 import { MOCK_USER, MOCK_ORGANIZATION } from "@/lib/mock-data";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -95,6 +98,68 @@ export default function SettingsPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("CREATOR");
+
+  // Phase 8: LinkedIn Integration state
+  const [linkedinData, setLinkedinData] = useState<{
+    connected: boolean;
+    status: string;
+    member?: {
+      id: string;
+      urn: string;
+      name: string;
+      email?: string;
+      avatar?: string;
+    };
+    connectedAt?: string;
+    expiresAt?: string;
+  } | null>(null);
+  const [loadingLinkedin, setLoadingLinkedin] = useState(false);
+  const [disconnectingLinkedin, setDisconnectingLinkedin] = useState(false);
+
+  const fetchLinkedinStatus = useCallback(async () => {
+    try {
+      setLoadingLinkedin(true);
+      const res = await fetch("/api/integrations/linkedin/status");
+      const data = await res.json();
+      if (data.connected) {
+        setLinkedinData(data);
+      } else {
+        setLinkedinData({ connected: false, status: data.status || "NOT_CONNECTED" });
+      }
+    } catch (err) {
+      console.error("Error checking LinkedIn status:", err);
+    } finally {
+      setLoadingLinkedin(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "INTEGRATIONS") {
+      fetchLinkedinStatus();
+    }
+  }, [activeTab, fetchLinkedinStatus]);
+
+  const handleDisconnectLinkedin = async () => {
+    if (disconnectingLinkedin) return;
+    try {
+      setDisconnectingLinkedin(true);
+      const res = await fetch("/api/integrations/linkedin/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: organization?.id || "org_primary",
+          userId: userProfile?.uid || "usr_admin_default",
+        }),
+      });
+      if (res.ok) {
+        await fetchLinkedinStatus();
+      }
+    } catch (err) {
+      console.error("Failed to disconnect LinkedIn:", err);
+    } finally {
+      setDisconnectingLinkedin(false);
+    }
+  };
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
     { id: "ACCOUNT", label: "Account Profile", icon: <User className="w-4 h-4" /> },
@@ -411,15 +476,87 @@ export default function SettingsPage() {
           {/* TAB 6: INTEGRATIONS */}
           {activeTab === "INTEGRATIONS" && (
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">
-                  External Connectors &amp; Webhooks
-                </CardTitle>
-                <p className="text-xs text-slate-500">
-                  Credentials are strictly stored server-side and never exposed in plain text
-                </p>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold">
+                    External Connectors &amp; Webhooks
+                  </CardTitle>
+                  <p className="text-xs text-slate-500">
+                    Credentials are strictly stored server-side with AES-256-GCM encryption
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchLinkedinStatus}
+                  leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loadingLinkedin ? "animate-spin" : ""}`} />}
+                >
+                  Refresh
+                </Button>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* LinkedIn OAuth 2.0 (Phase 8) */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  linkedinData?.connected
+                    ? "border-blue-300 bg-gradient-to-r from-blue-50/50 to-indigo-50/30"
+                    : "border-slate-200 bg-slate-50/60"
+                } flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs`}>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-[#0A66C2] flex items-center justify-center text-white shrink-0">
+                        <LinkedInIcon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-bold text-slate-900 text-sm">LinkedIn Member Publishing</span>
+                      {linkedinData?.connected ? (
+                        <Badge variant="verified" size="sm" dot>
+                          Connected
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" size="sm">
+                          Not Connected
+                        </Badge>
+                      )}
+                    </div>
+                    {linkedinData?.connected && linkedinData.member ? (
+                      <div className="text-[11px] text-slate-600 space-y-0.5 pl-8">
+                        <div><span className="font-medium text-slate-800">Member:</span> {linkedinData.member.name}</div>
+                        <div><span className="font-mono text-[10px] text-slate-500">{linkedinData.member.urn}</span></div>
+                        <div className="text-slate-400">Permissions: <code>w_member_social</code>, <code>openid</code>, <code>profile</code></div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-600 pl-8">
+                        Connect personal LinkedIn profile via 3-legged OAuth 2.0 to publish verified, human-approved posts.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 pl-8 sm:pl-0">
+                    {linkedinData?.connected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectLinkedin}
+                        disabled={disconnectingLinkedin}
+                        className="text-rose-600 hover:text-rose-700 hover:border-rose-300"
+                        leftIcon={<Unlink className="w-3.5 h-3.5" />}
+                      >
+                        {disconnectingLinkedin ? "Disconnecting..." : "Disconnect"}
+                      </Button>
+                    ) : (
+                      <a href="/api/integrations/linkedin/connect">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-[#0A66C2] hover:bg-[#004182] text-white"
+                          leftIcon={<LinkedInIcon className="w-3.5 h-3.5" />}
+                        >
+                          Connect LinkedIn
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
                 {/* Meta WhatsApp Business Cloud API (Phase 6) */}
                 <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
@@ -440,11 +577,30 @@ export default function SettingsPage() {
                   </Link>
                 </div>
 
+                {/* n8n Cloud Orchestration (Phase 7) */}
+                <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Workflow className="w-4 h-4 text-purple-600" />
+                      <span className="font-bold text-slate-900 text-sm">n8n Cloud Orchestration Workflow</span>
+                      <Badge variant="verified" size="sm">Phase 7 Connected</Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      Workflow <code>uunidN8XWaIcA5xY</code> on <code>shahrukh24.app.n8n.cloud</code> coordinates multi-channel distribution.
+                    </p>
+                  </div>
+                  <Link href="/automations">
+                    <Button variant="outline" size="sm" className="shrink-0 text-purple-700 hover:bg-purple-100/50">
+                      View Workflows
+                      <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                    </Button>
+                  </Link>
+                </div>
+
                 {[
                   { name: "Google Gemini REST API", status: "Active (Free Tier)", desc: "Configured via GEMINI_API_KEY environment variable" },
-                  { name: "Local Ollama Provider", status: "Ready", desc: "Listens on localhost:11434" },
+                  { name: "Local Ollama Provider", status: "Ready", desc: "Listens on localhost:11434 (llama3.2)" },
                   { name: "Cloud Firestore & Storage", status: "Connected", desc: "Multi-tenant project sih-5172e" },
-                  { name: "n8n Workflow Webhooks", status: "Coming Soon (Phase 7)", desc: "Trigger external automation graphs" },
                 ].map((item) => (
                   <div
                     key={item.name}

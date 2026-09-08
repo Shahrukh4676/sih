@@ -300,6 +300,70 @@ service cloud.firestore {
 
       allow delete: if isAdmin(resource.data.organizationId);
     }
+
+    // -------------------------------------------------------------------------
+    // Automation Events Collection (Phase 7: n8n Workflow Integration)
+    // -------------------------------------------------------------------------
+    match /automationEvents/{eventId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        isCreatorOrAbove(request.resource.data.organizationId);
+
+      allow update: if isOrgMember(resource.data.organizationId) &&
+        isAdmin(resource.data.organizationId);
+
+      // Append-only audit integrity: automation events cannot be deleted
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // LinkedIn Connections Collection (Phase 8: OAuth 2.0 & Member Posting)
+    // -------------------------------------------------------------------------
+    match /linkedinConnections/{connectionId} {
+      allow read: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        resource.data.userId == request.auth.uid
+      );
+
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update: if isOrgMember(resource.data.organizationId) && (
+        isAdmin(resource.data.organizationId) ||
+        resource.data.userId == request.auth.uid
+      );
+
+      // Connections are soft-revoked via status, not deleted
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Publishing Records Collection (Phase 8: Social Distribution Ledger)
+    // -------------------------------------------------------------------------
+    match /publishingRecords/{recordId} {
+      allow read: if isOrgMember(resource.data.organizationId);
+
+      allow create: if isOrgMember(request.resource.data.organizationId) &&
+        request.resource.data.organizationId == currentUserOrgId() &&
+        isCreatorOrAbove(request.resource.data.organizationId);
+
+      allow update: if isOrgMember(resource.data.organizationId) &&
+        isCreatorOrAbove(resource.data.organizationId);
+
+      // Append-only audit integrity: publishing records cannot be deleted
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // OAuth States Collection (Phase 8: CSRF Verification)
+    // -------------------------------------------------------------------------
+    match /oauthStates/{stateId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
   }
 }
-

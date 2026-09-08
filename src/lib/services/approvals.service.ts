@@ -5,7 +5,9 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Approval } from "@/types";
-import { updateContentStatus } from "./content.service";
+import { updateContentStatus, getContentById } from "./content.service";
+import { AutomationService } from "./automation.service";
+import { cleanForFirestore } from "../firebase/firestore-utils";
 
 export const APPROVALS_COLLECTION = "approvals";
 
@@ -65,19 +67,40 @@ export async function submitApprovalDecision(
   comments?: string
 ): Promise<boolean> {
   try {
+    const content = await getContentById(contentId);
+    const orgId = content?.organizationId || "org_default";
+
     const ref = doc(db, APPROVALS_COLLECTION, approvalId);
-    await updateDoc(ref, {
+    await setDoc(ref, cleanForFirestore({
+      id: approvalId,
+      contentId,
+      organizationId: orgId,
       status,
       reviewerId,
       reviewerName,
       comments: comments || null,
       resolvedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    }), { merge: true });
 
     // Mirror status update on the content document
     const contentStatus = status === "APPROVED" ? "APPROVED" : status === "REJECTED" ? "REJECTED" : "DRAFT";
     await updateContentStatus(contentId, contentStatus);
+
+    // If approved, trigger n8n orchestration asynchronously (non-blocking)
+    if (status === "APPROVED") {
+      try {
+        AutomationService.triggerApprovedContentWorkflow({
+          contentId,
+          organizationId: orgId,
+          userId: reviewerId,
+          versionId: content?.version || 1,
+          channel: "linkedin"
+        }).catch((err) => console.error("[Approvals Service] n8n trigger error:", err));
+      } catch (triggerErr) {
+        console.warn("[Approvals Service] Warning fetching approval record for trigger:", triggerErr);
+      }
+    }
 
     return true;
   } catch (error) {

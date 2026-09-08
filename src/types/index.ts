@@ -500,5 +500,91 @@ export interface WhatsAppMessageLog {
   timestamp: string;
 }
 
+// ==============================================================================
+// Phase 7: n8n Workflow Automation & Event Orchestration Types
+// ==============================================================================
 
+export type AutomationEventStatus =
+  | 'QUEUED'
+  | 'TRIGGERED'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'BLOCKED'
+  | 'DUPLICATE';
 
+export interface AutomationEvent extends BaseResource {
+  eventId: string;
+  eventType: 'CONTENT_APPROVED';
+  resourceType: 'CONTENT';
+  resourceId: string; // contentId
+  versionId: string | number; // e.g. "v1" or 1
+  channel: string; // e.g. "linkedin", "twitter", "internal", etc.
+  status: AutomationEventStatus;
+  workflowName?: string;
+  webhookUrl?: string;
+  executionId?: string;
+  retryCount?: number;
+  result?: {
+    state?: string; // e.g. "READY_FOR_DISTRIBUTION"
+    channel?: string;
+    [key: string]: unknown;
+  };
+  error?: string;
+  completedAt?: string;
+}
+
+// ==============================================================================
+// Phase 8: LinkedIn OAuth & Real Member Publishing Data Models
+// ==============================================================================
+
+export type LinkedInConnectionStatus =
+  | 'CONNECTED'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'ERROR'
+  | 'NOT_CONNECTED';
+
+export interface LinkedInConnection extends BaseResource {
+  linkedinMemberId: string;
+  linkedinMemberUrn: string; // urn:li:person:...
+  memberName?: string;
+  memberEmail?: string;
+  memberAvatar?: string;
+  scopes: string[];
+  accessTokenEncrypted: string;
+  expiresAt: string; // ISO string
+  status: LinkedInConnectionStatus;
+  connectedAt: string;
+  lastPublishedAt?: string;
+}
+
+export type PublishingStatus =
+  | 'NOT_CONNECTED'
+  | 'READY'
+  | 'PUBLISHING'
+  | 'PUBLISHED'
+  | 'FAILED'
+  | 'TOKEN_EXPIRED'
+  | 'BLOCKED';
+
+export interface PublishingRecord extends BaseResource {
+  contentId: string;
+  versionId: string | number;
+  channel: 'linkedin' | 'x' | 'instagram' | 'whatsapp';
+  status: PublishingStatus;
+  externalPostId?: string;
+  publishedUrl?: string;
+  error?: string;
+  errorCode?: string;
+  publishedAt?: string;
+}
+
+export interface LinkedInOAuthState {
+  state: string;
+  userId: string;
+  organizationId: string;
+  createdAt: number;
+  expiresAt: number;
+  used: boolean;
+}

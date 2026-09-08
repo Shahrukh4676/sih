@@ -19,6 +19,7 @@ import { SecurityEngine } from "../security/security-engine";
 import { createSource } from "../services/sources.service";
 import { createContent, getContentById, appendContentVersion, updateContentStatus } from "../services/content.service";
 import { logAuditEvent } from "../services/audit.service";
+import { AutomationService } from "../services/automation.service";
 
 // Deduplication cache: keeps track of processed Meta message IDs (10 min TTL)
 const processedMessageIds = new Map<string, number>();
@@ -763,6 +764,15 @@ export class WhatsAppMessageRouter {
     // Update content status in Firestore
     await updateContentStatus(contentId, "APPROVED");
 
+    // Trigger n8n orchestration asynchronously (non-blocking)
+    AutomationService.triggerApprovedContentWorkflow({
+      contentId,
+      organizationId: connection.organizationId,
+      userId: connection.userId,
+      versionId: versionNum,
+      channel: "linkedin",
+    }).catch((err) => console.error("[WhatsApp Router] n8n trigger error:", err));
+
     // Transition session state to COMPLETED
     await this.conversationManager.transitionState(conversation.id, "COMPLETED", {
       pendingAction: undefined,
@@ -789,12 +799,13 @@ export class WhatsAppMessageRouter {
     });
 
     const approveConfirmation =
-      `✅ *Approved!*\n\n` +
-      `This content is officially approved and marked *READY FOR DISTRIBUTION* in NEXUS AI.\n\n` +
+      `✅ *Approved & Dispatched!*\n\n` +
+      `This content is officially approved and READY FOR DISTRIBUTION via the orchestration pipeline.\n\n` +
       `• *Content ID:* \`${contentId}\`\n` +
       `• *Version:* v${versionNum}\n` +
+      `• *Channel:* LinkedIn Member Feed\n` +
       `• *Status:* Approved\n\n` +
-      `_Note: Social distribution to LinkedIn & X will be available in Phase 8._`;
+      `_Track publication status live in the NEXUS Publishing Center._`;
 
     await this.client.sendTextMessage(fromPhone, approveConfirmation);
 

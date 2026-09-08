@@ -203,3 +203,32 @@ export async function updateContentStatus(
     return true;
   }
 }
+
+export async function updateContent(
+  contentId: string,
+  updates: Partial<Content> & Record<string, unknown>
+): Promise<Content | null> {
+  const existing = inMemoryContentCache.get(contentId);
+  const nowIso = new Date().toISOString();
+  let updatedObj: Content | null = null;
+  if (existing) {
+    updatedObj = {
+      ...existing,
+      ...updates,
+      updatedAt: nowIso,
+    } as Content;
+    inMemoryContentCache.set(contentId, updatedObj);
+  }
+
+  try {
+    const ref = doc(db, CONTENT_COLLECTION, contentId);
+    await updateDoc(ref, cleanForFirestore({
+      ...updates,
+      updatedAt: serverTimestamp()
+    }));
+    return updatedObj;
+  } catch (error) {
+    console.warn("[Content Service] Firestore content update notice:", error);
+    return updatedObj;
+  }
+}

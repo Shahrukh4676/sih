@@ -43,16 +43,32 @@ export default function ApprovalCenterPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
     if (!activeItem) return;
-    setSuccessToast(`"${activeItem.title}" has been approved for publication.`);
+    const itemTitle = activeItem.title;
+    const contentId = activeItem.id;
+
+    // Trigger backend approval & n8n orchestration asynchronously
+    fetch(`/api/approvals/appr_${contentId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contentId,
+        status: "APPROVED",
+        reviewerId: "user_governance_lead",
+        reviewerName: "Governance Officer",
+        comments: "Approved via Approval Center",
+      }),
+    }).catch((err) => console.error("Error submitting approval:", err));
+
+    setSuccessToast(`"${itemTitle}" approved! Dispatched to n8n Cloud orchestration.`);
     setItems((prev) => prev.filter((i) => i.id !== id));
     const remaining = items.filter((i) => i.id !== id);
     setActiveItem(remaining[0] || null);
     if (remaining[0]) {
       setEditableBody(remaining[0].currentVersion.body);
     }
-    setTimeout(() => setSuccessToast(null), 3000);
+    setTimeout(() => setSuccessToast(null), 4000);
   };
 
   const handleReject = () => {

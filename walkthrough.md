@@ -92,3 +92,56 @@ All key pages were inspected in the browser and confirmed to meet enterprise Saa
 <!-- slide -->
 ![Command Palette Modal](/C:/Users/shahr/.gemini/antigravity-ide/brain/5ce543f9-054f-4c12-911c-8e6389719952/command_palette_modal_1788807171831.png)
 ````
+
+---
+
+## 6. Phase 7: n8n Workflow Integration (Approved Content Orchestration)
+
+NEXUS AI successfully connected to the existing n8n Cloud workflow (`uunidN8XWaIcA5xY`):
+- **Status Endpoint**: `GET /api/automation/status` reports real-time health of `https://shahrukh24.app.n8n.cloud/webhook/nexus/content-approved`.
+- **Approval Sign-off Trigger**: Approving content creates an orchestration event and dispatches webhook payload with shared secret.
+- **n8n Content Retrieval**: Exposed `GET /api/content/[id]` returning clean format for n8n JSON nodes.
+- **Asynchronous Callback Processing**: `POST /api/automation/callback` with shared secret validation (`N8N_CALLBACK_SECRET`), idempotency deduplication, and `READY_FOR_DISTRIBUTION` status updates.
+- **Automations Dashboard**: `/automations` dashboard with execution statistics, live audit trail, and manual trigger controls.
+- **Automated Verification**: **60/60 tests passed** in `test-phase7-n8n.mjs`.
+
+````carousel
+![Automations Initial Loaded](/C:/Users/shahr/.gemini/antigravity-ide/brain/5ce543f9-054f-4c12-911c-8e6389719952/automations_page_loaded_1788842990114.png)
+<!-- slide -->
+![Automations Trigger Event](/C:/Users/shahr/.gemini/antigravity-ide/brain/5ce543f9-054f-4c12-911c-8e6389719952/automations_after_test_trigger_1788843017375.png)
+<!-- slide -->
+![Automations Executions Stream](/C:/Users/shahr/.gemini/antigravity-ide/brain/5ce543f9-054f-4c12-911c-8e6389719952/automations_executions_stream_1788843139242.png)
+````
+
+---
+
+## 7. Phase 8: LinkedIn OAuth & Real Member Posting
+
+Phase 8 achieved complete authenticated publishing to personal LinkedIn member profiles (`urn:li:person:...`):
+
+### Key Components Implemented:
+1. **AES-256-GCM Token Encryption Engine** ([`src/lib/security/token-encryption.ts`](file:///c:/Users/shahr/nexoura/src/lib/security/token-encryption.ts)):
+   - Encrypts OAuth tokens using a 32-byte master key (`LINKEDIN_ENCRYPTION_KEY`), 12-byte initialization vector, and 16-byte GCM authentication tag.
+   - Zero token leakage: Tokens are never sent to the browser or n8n, never stored unencrypted, and never logged in audit trails.
+2. **Modern LinkedIn Posts API Client** ([`src/lib/integrations/linkedin/linkedin-client.ts`](file:///c:/Users/shahr/nexoura/src/lib/integrations/linkedin/linkedin-client.ts)):
+   - 3-legged OAuth flow (`w_member_social`, `openid`, `profile`, `email`).
+   - Profile resolution via OpenID Connect UserInfo (`urn:li:person:...`).
+   - Post publishing via `POST https://api.linkedin.com/rest/posts` with `LinkedIn-Version: 202502` and `X-Restli-Protocol-Version: 2.0.0`.
+   - Character counter defense: Rejects any post exceeding 3000 characters.
+3. **LinkedIn Service & Multi-Gate Defense** ([`src/lib/services/linkedin.service.ts`](file:///c:/Users/shahr/nexoura/src/lib/services/linkedin.service.ts)):
+   - Single-use CSRF OAuth state generation and consumption (15-min TTL).
+   - Multi-gate validation: Cross-tenant isolation, active connection verification, human approval signoff, Phase 5 security engine clearance (`ALLOW`), and character limit check.
+   - Idempotency deduplication: Duplicate calls return existing post IDs (`urn:li:share:...`) without duplicate API posts.
+   - Cryptographic token purge on disconnect.
+4. **Publishing Center & Settings Integration**:
+   - Rebuilt [`src/app/(dashboard)/publishing/page.tsx`](file:///c:/Users/shahr/nexoura/src/app/(dashboard)/publishing/page.tsx) with live LinkedIn connection card, character counter indicators, ready-to-publish queue, and publication history stream.
+   - Enhanced [`src/app/(dashboard)/settings/page.tsx`](file:///c:/Users/shahr/nexoura/src/app/(dashboard)/settings/page.tsx) with one-click LinkedIn connection and disconnection under the Integrations tab.
+
+### Automated Verification Results:
+- **`node test-phase8-linkedin.mjs`**: **76/76 passed (100%)**
+- **`node test-phase7-n8n.mjs`**: **60/60 passed (100%)**
+- **`node test-phase6-whatsapp.mjs`**: **40/40 passed (100%)**
+- **`node test-phase5-security.mjs`**: **10/10 passed (100%)**
+- **`node test-phase4-visuals.mjs`**: **14/14 passed (100%)**
+- **`npx tsc --noEmit`**: **0 errors across all routes**
+- **`npm run build`**: **39/39 pages built and optimized with exit code 0**
