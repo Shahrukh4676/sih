@@ -7,6 +7,20 @@
 
 ## 1. Core Architecture & Completed Phases
 
+### Priority 0: LinkedIn API Version Header (202502 Strict Enforcement)
+- **Root Cause Solved**: Fixed issue where outbound requests to `https://api.linkedin.com/rest/posts` were sending `Linkedin-Version: 20250201` due to invalid 8-digit date formatting (`YYYYMMDD`), triggering LinkedIn HTTP 400 (`"Requested version 20250201 is not active"`).
+- **Implementation**:
+  - In [src/lib/integrations/linkedin/linkedin-client.ts](file:///c:/Users/shahr/nexoura/src/lib/integrations/linkedin/linkedin-client.ts), configured `DEFAULT_LINKEDIN_API_VERSION = "202502"` and added `validateLinkedInApiVersion` to enforce strict 6-digit `YYYYMM` format (`/^\d{4}(0[1-9]|1[0-2])$/`).
+  - Completely prohibited day suffixes (`01`) or arbitrary timestamps.
+  - Added pre-flight error rejection with `INVALID_LINKEDIN_API_VERSION` before calling LinkedIn if an invalid version is detected in the environment.
+  - In [src/app/api/integrations/linkedin/publish/route.ts](file:///c:/Users/shahr/nexoura/src/app/api/integrations/linkedin/publish/route.ts), added status mapping for `INVALID_LINKEDIN_API_VERSION` to HTTP 500 with descriptive error payload.
+- **Verification**:
+  - `node test-linkedin-version-regression.mjs`: 13/13 tests passed (100%).
+  - `node test-phase8-linkedin.mjs`: 76/76 tests passed (100%).
+  - `node test-real-publish-lifecycle.mjs`: 11/11 tests passed (100%).
+  - `npx tsc --noEmit`: 0 errors.
+  - `npm run build`: 17 static and dynamic routes compiled cleanly in 9.4s.
+
 ### Priority 1: LinkedIn Account Switching Bug & Session Invalidation
 - **Root Cause Solved**: Fixed race conditions and stale in-memory profile caches where switching between LinkedIn Account A and Account B displayed stale member details.
 - **Implementation**: Enforced explicit cache invalidation in [src/lib/services/linkedin.service.ts](file:///c:/Users/shahr/nexoura/src/lib/services/linkedin.service.ts) and cache-busting headers (`no-store, no-cache`) across `/api/integrations/linkedin/status`.
