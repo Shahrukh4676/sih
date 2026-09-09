@@ -33,8 +33,31 @@ export interface LinkedInPublishResult {
   simulated?: boolean;
 }
 
-// Active version cache discovered through live LinkedIn API responses
-let activeLinkedInVersion: string | null = null;
+export const DEFAULT_LINKEDIN_API_VERSION = "202502";
+
+/**
+ * Validates that a LinkedIn API version strictly adheres to the official 6-digit YYYYMM format.
+ * Rejects 8-digit dates (YYYYMMDD like '20250201'), timestamps, day suffixes, or arbitrary strings.
+ */
+export function validateLinkedInApiVersion(version: string): { valid: boolean; error?: string } {
+  if (!version || typeof version !== "string") {
+    return { valid: false, error: "LinkedIn API version must be a non-empty string." };
+  }
+  const trimmed = version.trim();
+  if (trimmed.length !== 6) {
+    return {
+      valid: false,
+      error: `Invalid LinkedIn API version '${version}'. LinkedIn API version must be exactly 6 characters in YYYYMM format (e.g. '202502'). Day suffixes like '01' (e.g. '20250201') are strictly prohibited.`,
+    };
+  }
+  if (!/^\d{4}(0[1-9]|1[0-2])$/.test(trimmed)) {
+    return {
+      valid: false,
+      error: `Invalid LinkedIn API version '${version}'. Must strictly follow 6-digit YYYYMM format with a valid month (01-12).`,
+    };
+  }
+  return { valid: true };
+}
 
 export class LinkedInClient {
   private get clientId(): string {
@@ -52,17 +75,17 @@ export class LinkedInClient {
     );
   }
 
-  private get apiVersion(): string {
-    if (activeLinkedInVersion) return activeLinkedInVersion;
-
-    const raw = getSecret("LINKEDIN_API_VERSION") || "202501";
-    // Strip non-digit characters
-    const digits = raw.replace(/[^\d]/g, "");
-    // LinkedIn API versions must be strictly YYYYMM (6 digits). If someone provided YYYYMMDD (8 digits), extract YYYYMM
-    if (digits.length >= 6) {
-      return digits.slice(0, 6);
+  /**
+   * Retrieves the configured LinkedIn API version.
+   * If env variable is set, it is used directly without transformation.
+   * If not set, defaults to '202502'.
+   */
+  public getApiVersion(): string {
+    const raw = getSecret("LINKEDIN_API_VERSION");
+    if (raw && raw.trim()) {
+      return raw.trim();
     }
-    return "202501";
+    return DEFAULT_LINKEDIN_API_VERSION; // "202502"
   }
 
   constructor() {
@@ -275,117 +298,88 @@ export class LinkedInClient {
       };
     }
 
-    // 3. Real live LinkedIn Posts API Call with automatic version fallback
-    const candidateVersions = Array.from(
-      new Set([
-        this.apiVersion,
-        "202501",
-        "202412",
-        "202411",
-        "202410",
-        "202502",
-      ])
-    );
-
-    let lastStatus = 500;
-    let lastError = "Failed to dispatch post to LinkedIn";
-    let lastErrorCode = "LINKEDIN_PUBLISH_FAILED";
-
-    for (const versionToTry of candidateVersions) {
-      try {
-        const payload = {
-          author: authorUrn,
-          commentary,
-          visibility: "PUBLIC",
-          distribution: {
-            feedDistribution: "MAIN_FEED",
-            targetEntities: [],
-            thirdPartyDistributionChannels: [],
-          },
-          lifecycleState: "PUBLISHED",
-          isReshareDisabledByAuthor: false,
-        };
-
-        const response = await fetch("https://api.linkedin.com/rest/posts", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "LinkedIn-Version": versionToTry,
-            "X-Restli-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (response.status === 201) {
-          activeLinkedInVersion = versionToTry;
-          console.log(`[LinkedInClient] Successfully published post using active version ${versionToTry}`);
-          // LinkedIn returns post URN in x-restli-id header
-          const postId =
-            response.headers.get("x-restli-id") ||
-            response.headers.get("x-linkedin-id") ||
-            `urn:li:share:${Date.now()}`;
-          return {
-            success: true,
-            statusCode: 201,
-            postId,
-            publishedUrl: `https://www.linkedin.com/feed/update/${postId}`,
-          };
-        }
-
-        // Handle non-201 response
-        let errorData: Record<string, unknown> = {};
-        try {
-          errorData = (await response.json()) as Record<string, unknown>;
-        } catch {
-          errorData = { statusText: response.statusText };
-        }
-
-        const errorMessage = (errorData?.message as string) || response.statusText || "";
-        const isVersionInactive =
-          response.status === 400 &&
-          (errorMessage.toLowerCase().includes("not active") ||
-            errorMessage.toLowerCase().includes("requested version") ||
-            errorMessage.toLowerCase().includes("version"));
-
-        if (isVersionInactive) {
-          console.warn(`[LinkedInClient] Version ${versionToTry} inactive: "${errorMessage}". Trying fallback candidate...`);
-          lastStatus = 400;
-          lastError = errorMessage;
-          lastErrorCode = "LINKEDIN_VERSION_INACTIVE";
-          continue; // Try next candidate version
-        }
-
-        const status = response.status;
-        let errorCode = "LINKEDIN_PUBLISH_FAILED";
-        if (status === 401) errorCode = "LINKEDIN_TOKEN_INVALID";
-        else if (status === 403) errorCode = "LINKEDIN_PERMISSION_DENIED";
-        else if (status === 422) errorCode = "LINKEDIN_CONTENT_REJECTED";
-        else if (status === 429) errorCode = "LINKEDIN_RATE_LIMITED";
-        else if (status >= 500) errorCode = "LINKEDIN_SERVICE_UNAVAILABLE";
-
-        return {
-          success: false,
-          statusCode: status,
-          errorCode,
-          error: errorMessage || `LinkedIn Posts API returned HTTP ${status}: ${response.statusText}`,
-        };
-      } catch (err: unknown) {
-        const errorObj = err as Error;
-        return {
-          success: false,
-          errorCode: "NETWORK_ERROR",
-          error: errorObj?.message || "Failed to reach LinkedIn API gateway",
-        };
-      }
+    // Validate API version format strictly as YYYYMM (6 digits) before calling LinkedIn
+    const version = this.getApiVersion();
+    const validation = validateLinkedInApiVersion(version);
+    if (!validation.valid) {
+      return {
+        success: false,
+        statusCode: 500,
+        errorCode: "INVALID_LINKEDIN_API_VERSION",
+        error: validation.error || `Invalid LinkedIn API version '${version}'.`,
+      };
     }
 
-    return {
-      success: false,
-      statusCode: lastStatus,
-      errorCode: lastErrorCode,
-      error: lastError,
-    };
+    // 3. Real live LinkedIn Posts API Call
+    try {
+      const payload = {
+        author: authorUrn,
+        commentary,
+        visibility: "PUBLIC",
+        distribution: {
+          feedDistribution: "MAIN_FEED",
+          targetEntities: [],
+          thirdPartyDistributionChannels: [],
+        },
+        lifecycleState: "PUBLISHED",
+        isReshareDisabledByAuthor: false,
+      };
+
+      const response = await fetch("https://api.linkedin.com/rest/posts", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "LinkedIn-Version": version,
+          "X-Restli-Protocol-Version": "2.0.0",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 201) {
+        // LinkedIn returns post URN in x-restli-id header
+        const postId =
+          response.headers.get("x-restli-id") ||
+          response.headers.get("x-linkedin-id") ||
+          `urn:li:share:${Date.now()}`;
+        return {
+          success: true,
+          statusCode: 201,
+          postId,
+          publishedUrl: `https://www.linkedin.com/feed/update/${postId}`,
+        };
+      }
+
+      // Handle non-201 response
+      let errorData: Record<string, unknown> = {};
+      try {
+        errorData = (await response.json()) as Record<string, unknown>;
+      } catch {
+        errorData = { statusText: response.statusText };
+      }
+
+      const status = response.status;
+      let errorCode = "LINKEDIN_PUBLISH_FAILED";
+      if (status === 401) errorCode = "LINKEDIN_TOKEN_INVALID";
+      else if (status === 403) errorCode = "LINKEDIN_PERMISSION_DENIED";
+      else if (status === 422) errorCode = "LINKEDIN_CONTENT_REJECTED";
+      else if (status === 429) errorCode = "LINKEDIN_RATE_LIMITED";
+      else if (status >= 500) errorCode = "LINKEDIN_SERVICE_UNAVAILABLE";
+
+      return {
+        success: false,
+        statusCode: status,
+        errorCode,
+        error: (errorData?.message as string) || `LinkedIn Posts API returned HTTP ${status}: ${response.statusText}`,
+      };
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      return {
+        success: false,
+        errorCode: "NETWORK_ERROR",
+        error: errorObj?.message || "Failed to reach LinkedIn API gateway",
+      };
+    }
   }
 }
 

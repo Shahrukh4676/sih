@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
         LINKEDIN_TOKEN_EXPIRED: 401,
         LINKEDIN_TOKEN_INVALID: 401,
         LINKEDIN_PERMISSION_DENIED: 403,
+        INVALID_LINKEDIN_API_VERSION: 500,
       };
 
       const httpStatus = statusMap[result.errorCode || ""] || 400;
