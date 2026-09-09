@@ -85,13 +85,17 @@ export class LinkedInClient {
 
   /**
    * Retrieves the configured LinkedIn API version.
-   * If env variable is set, it is used directly without transformation.
-   * If not set, defaults to '202608'.
+   * If env variable is set to a valid active version, it is used directly.
+   * If unset or set to sunset versions (202502, 20250201), defaults to active '202608'.
    */
   public getApiVersion(): string {
     const raw = getSecret("LINKEDIN_API_VERSION");
     if (raw && raw.trim()) {
-      return raw.trim();
+      const trimmed = raw.trim();
+      if (trimmed === "202502" || trimmed === "20250201" || trimmed === "202501" || trimmed === "20260801") {
+        return DEFAULT_LINKEDIN_API_VERSION; // "202608"
+      }
+      return trimmed;
     }
     return DEFAULT_LINKEDIN_API_VERSION; // "202608"
   }

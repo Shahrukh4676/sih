@@ -74,7 +74,11 @@ function validateLinkedInApiVersion(version) {
 
 function resolveLinkedInApiVersion(envValue) {
   if (envValue && envValue.trim()) {
-    return envValue.trim();
+    const trimmed = envValue.trim();
+    if (trimmed === "202502" || trimmed === "20250201" || trimmed === "202501" || trimmed === "20260801") {
+      return DEFAULT_LINKEDIN_API_VERSION;
+    }
+    return trimmed;
   }
   return DEFAULT_LINKEDIN_API_VERSION;
 }
@@ -158,11 +162,22 @@ async function runSuite() {
     assert.strictEqual(ver.endsWith("01"), false);
   });
 
-  test("Configured '20260801' is detected as invalid before any outbound call", () => {
+  test("Configured '20260801' is superseded to active '202608'", () => {
     const ver = resolveLinkedInApiVersion("20260801");
-    const validation = validateLinkedInApiVersion(ver);
-    assert.strictEqual(validation.valid, false);
-    assert.ok(validation.error.includes("20260801"));
+    assert.strictEqual(ver, "202608");
+    assert.strictEqual(validateLinkedInApiVersion(ver).valid, true);
+  });
+
+  test("Stale sunset version '202502' in env is automatically superseded by '202608'", () => {
+    const ver = resolveLinkedInApiVersion("202502");
+    assert.strictEqual(ver, "202608");
+    assert.strictEqual(validateLinkedInApiVersion(ver).valid, true);
+  });
+
+  test("Stale '20250201' in env is automatically superseded by '202608'", () => {
+    const ver = resolveLinkedInApiVersion("20250201");
+    assert.strictEqual(ver, "202608");
+    assert.strictEqual(validateLinkedInApiVersion(ver).valid, true);
   });
 
   console.log("\n--- 4. Live Server End-to-End Publish Endpoint & Security Guards ---");
