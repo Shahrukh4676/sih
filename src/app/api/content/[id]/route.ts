@@ -17,6 +17,18 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    const reqOrg =
+      req.headers.get("x-organization-id") ||
+      req.nextUrl.searchParams.get("organizationId");
+
+    if (reqOrg && content.organizationId && content.organizationId !== reqOrg) {
+      return NextResponse.json(
+        { success: false, error: "Cross-tenant content access forbidden" },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       content,

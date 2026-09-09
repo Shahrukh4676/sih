@@ -15,6 +15,17 @@ export async function GET(
       return NextResponse.json({ error: `Execution not found: ${id}` }, { status: 404 });
     }
 
+    const reqOrg =
+      req.headers.get("x-organization-id") ||
+      req.nextUrl.searchParams.get("organizationId");
+
+    if (reqOrg && event.organizationId && event.organizationId !== reqOrg) {
+      return NextResponse.json(
+        { success: false, error: "Cross-tenant execution access forbidden" },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({ success: true, execution: event, ...event });
   } catch (err: any) {
     return NextResponse.json(

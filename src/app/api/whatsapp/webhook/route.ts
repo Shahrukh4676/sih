@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const configuredToken = getSecret("WHATSAPP_VERIFY_TOKEN");
+  const configuredToken = getSecret("WHATSAPP_VERIFY_TOKEN") || "nexus_whatsapp_verify_token_secure";
 
   if (mode === "subscribe" && token === configuredToken) {
     console.log("[WhatsApp Webhook] Verification handshake successful.");

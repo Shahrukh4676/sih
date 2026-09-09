@@ -14,6 +14,7 @@ import { AutomationEvent, AutomationEventStatus } from "@/types";
 import { getN8nClient, ApprovedContentTriggerPayload } from "../automation/n8n-client";
 import { getContentById } from "./content.service";
 import { logAuditEvent } from "./audit.service";
+import { WhatsAppService } from "./whatsapp.service";
 import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const AUTOMATION_EVENTS_COLLECTION = "automationEvents";
@@ -348,6 +349,16 @@ export class AutomationService {
         },
       });
     }
+
+    // Notify original WhatsApp user of orchestration outcome
+    WhatsAppService.notifyPublishResult({
+      organizationId: event.organizationId,
+      contentId: event.resourceId,
+      channel: event.channel || "linkedin",
+      success: status === "COMPLETED",
+      publishedUrl: (result as Record<string, unknown> | undefined)?.publishedUrl as string | undefined,
+      error: event.error,
+    }).catch((err) => console.warn("[AutomationService] WhatsApp callback notification notice:", err));
 
     return {
       success: true,

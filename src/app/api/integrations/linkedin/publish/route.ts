@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LinkedInService } from "@/lib/services/linkedin.service";
+import { WhatsAppService } from "@/lib/services/whatsapp.service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,6 +56,15 @@ export async function POST(req: NextRequest) {
 
       const httpStatus = statusMap[result.errorCode || ""] || 400;
 
+      // Dispatched notification to associated WhatsApp user asynchronously
+      WhatsAppService.notifyPublishResult({
+        organizationId,
+        contentId,
+        channel: "linkedin",
+        success: false,
+        error: result.error,
+      }).catch((err) => console.warn("[LinkedIn Publish API] WhatsApp notify warning:", err));
+
       return NextResponse.json(
         {
           success: false,
@@ -67,6 +77,15 @@ export async function POST(req: NextRequest) {
         { status: httpStatus }
       );
     }
+
+    // Dispatched confirmation to associated WhatsApp user asynchronously
+    WhatsAppService.notifyPublishResult({
+      organizationId,
+      contentId,
+      channel: "linkedin",
+      success: true,
+      publishedUrl: result.publishedUrl,
+    }).catch((err) => console.warn("[LinkedIn Publish API] WhatsApp notify warning:", err));
 
     return NextResponse.json({
       success: true,

@@ -20,6 +20,18 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const reqOrg =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId");
+
+    if (reqOrg && conversation.organizationId && conversation.organizationId !== reqOrg) {
+      return NextResponse.json(
+        { success: false, error: "Cross-tenant conversation access forbidden" },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       data: conversation,

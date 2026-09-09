@@ -96,6 +96,69 @@ export class WhatsAppService {
   }
 
   /**
+   * Notifies original WhatsApp user of publishing outcome (success or failure)
+   */
+  public static async notifyPublishResult(options: {
+    organizationId: string;
+    contentId: string;
+    channel: string;
+    success: boolean;
+    publishedUrl?: string;
+    error?: string;
+  }): Promise<{ notified: boolean; phoneNumber?: string; error?: string }> {
+    try {
+      const { organizationId, contentId, channel, success, publishedUrl, error } = options;
+      const client = getWhatsAppClient();
+
+      // 1. Check if there is an active or completed conversation for this content
+      const conversations = await defaultWhatsAppConversationManager.listByOrg(organizationId);
+      const conv = conversations.find((c) => c.currentContentId === contentId);
+
+      let targetPhone = conv?.phoneNumber;
+
+      // 2. If not found by conversation, check if content has a known owner with an active connection
+      if (!targetPhone) {
+        const { getContentById } = await import("./content.service");
+        const content = await getContentById(contentId);
+        if (content?.userId) {
+          const connections = await defaultWhatsAppUserLinkService.listConnectionsByOrg(organizationId);
+          const conn = connections.find((c) => c.userId === content.userId && c.status === "ACTIVE");
+          if (conn) {
+            targetPhone = conn.phoneNumber;
+          }
+        }
+      }
+
+      if (!targetPhone) {
+        return { notified: false, error: "No associated WhatsApp user found" };
+      }
+
+      const channelName = channel.charAt(0).toUpperCase() + channel.slice(1);
+      let message = "";
+
+      if (success) {
+        message =
+          `🚀 *Published Successfully to ${channelName}!*\n\n` +
+          `Your approved content has been published live.\n\n` +
+          (publishedUrl ? `• *Post URL:* ${publishedUrl}\n\n` : "") +
+          `_Track live performance and analytics in your NEXUS Dashboard._`;
+      } else {
+        message =
+          `⚠️ *Publishing to ${channelName} Failed*\n\n` +
+          `The content was not published. Reason: ${error || "Distribution pipeline error"}\n\n` +
+          `_Please inspect this incident in the NEXUS Publishing Center._`;
+      }
+
+      await client.sendTextMessage(targetPhone, message);
+      return { notified: true, phoneNumber: targetPhone };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "WhatsApp notify error";
+      console.warn("[WhatsAppService] notifyPublishResult error:", msg);
+      return { notified: false, error: msg };
+    }
+  }
+
+  /**
    * Meta Webhook X-Hub-Signature-256 validation
    */
   public static validateWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean {
