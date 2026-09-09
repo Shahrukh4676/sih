@@ -31,13 +31,15 @@ export interface LinkedInPublishResult {
   error?: string;
   errorCode?: string;
   simulated?: boolean;
+  apiVersion?: string;
 }
 
-export const DEFAULT_LINKEDIN_API_VERSION = "202502";
+export const DEFAULT_LINKEDIN_API_VERSION = "202608";
 
 /**
  * Validates that a LinkedIn API version strictly adheres to the official 6-digit YYYYMM format.
- * Rejects 8-digit dates (YYYYMMDD like '20250201'), timestamps, day suffixes, or arbitrary strings.
+ * Rejects sunset versions (e.g., '202502'), 8-digit dates (YYYYMMDD like '20260801', '20250201'),
+ * timestamps, day suffixes, or arbitrary strings.
  */
 export function validateLinkedInApiVersion(version: string): { valid: boolean; error?: string } {
   if (!version || typeof version !== "string") {
@@ -47,13 +49,19 @@ export function validateLinkedInApiVersion(version: string): { valid: boolean; e
   if (trimmed.length !== 6) {
     return {
       valid: false,
-      error: `Invalid LinkedIn API version '${version}'. LinkedIn API version must be exactly 6 characters in YYYYMM format (e.g. '202502'). Day suffixes like '01' (e.g. '20250201') are strictly prohibited.`,
+      error: `Invalid LinkedIn API version '${version}'. LinkedIn API version must be exactly 6 characters in YYYYMM format (e.g. '202608'). Day suffixes like '01' (e.g. '20260801') are strictly prohibited.`,
     };
   }
   if (!/^\d{4}(0[1-9]|1[0-2])$/.test(trimmed)) {
     return {
       valid: false,
       error: `Invalid LinkedIn API version '${version}'. Must strictly follow 6-digit YYYYMM format with a valid month (01-12).`,
+    };
+  }
+  if (trimmed === "202502" || trimmed === "202501" || trimmed < "202503") {
+    return {
+      valid: false,
+      error: `LinkedIn API version '${version}' was officially sunset by LinkedIn on February 16, 2026. Use active version '202608'.`,
     };
   }
   return { valid: true };
@@ -78,14 +86,14 @@ export class LinkedInClient {
   /**
    * Retrieves the configured LinkedIn API version.
    * If env variable is set, it is used directly without transformation.
-   * If not set, defaults to '202502'.
+   * If not set, defaults to '202608'.
    */
   public getApiVersion(): string {
     const raw = getSecret("LINKEDIN_API_VERSION");
     if (raw && raw.trim()) {
       return raw.trim();
     }
-    return DEFAULT_LINKEDIN_API_VERSION; // "202502"
+    return DEFAULT_LINKEDIN_API_VERSION; // "202608"
   }
 
   constructor() {
@@ -307,8 +315,14 @@ export class LinkedInClient {
         statusCode: 500,
         errorCode: "INVALID_LINKEDIN_API_VERSION",
         error: validation.error || `Invalid LinkedIn API version '${version}'.`,
+        apiVersion: version,
       };
     }
+
+    // Instrumentation: Log outbound request details (NO secrets)
+    console.log(
+      `[LinkedInClient] Outbound POST https://api.linkedin.com/rest/posts | LinkedIn-Version: ${version} | Author: ${authorUrn} | commentaryLength: ${commentary.length}`
+    );
 
     // 3. Real live LinkedIn Posts API Call
     try {
@@ -336,6 +350,10 @@ export class LinkedInClient {
         body: JSON.stringify(payload),
       });
 
+      console.log(
+        `[LinkedInClient] Response received from api.linkedin.com/rest/posts: HTTP ${response.status} (version sent: ${version})`
+      );
+
       if (response.status === 201) {
         // LinkedIn returns post URN in x-restli-id header
         const postId =
@@ -347,6 +365,7 @@ export class LinkedInClient {
           statusCode: 201,
           postId,
           publishedUrl: `https://www.linkedin.com/feed/update/${postId}`,
+          apiVersion: version,
         };
       }
 
@@ -371,6 +390,7 @@ export class LinkedInClient {
         statusCode: status,
         errorCode,
         error: (errorData?.message as string) || `LinkedIn Posts API returned HTTP ${status}: ${response.statusText}`,
+        apiVersion: version,
       };
     } catch (err: unknown) {
       const errorObj = err as Error;
@@ -378,6 +398,7 @@ export class LinkedInClient {
         success: false,
         errorCode: "NETWORK_ERROR",
         error: errorObj?.message || "Failed to reach LinkedIn API gateway",
+        apiVersion: version,
       };
     }
   }

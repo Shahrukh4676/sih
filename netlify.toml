@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  LINKEDIN_API_VERSION = "202608"
+
+[context.production.environment]
+  LINKEDIN_API_VERSION = "202608"
+
+[context.deploy-preview.environment]
+  LINKEDIN_API_VERSION = "202608"
+
+[context.branch-deploy.environment]
+  LINKEDIN_API_VERSION = "202608"

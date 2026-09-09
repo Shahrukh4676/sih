@@ -62,6 +62,7 @@ export interface PublishApprovedContentResult {
   error?: string;
   errorCode?: string;
   duplicate?: boolean;
+  apiVersion?: string;
 }
 
 export class LinkedInService {
@@ -724,6 +725,7 @@ export class LinkedInService {
           errorCode: publishResult.errorCode,
           error: publishResult.error,
           statusCode: publishResult.statusCode,
+          apiVersion: publishResult.apiVersion || "202608",
         },
       });
 
@@ -732,6 +734,7 @@ export class LinkedInService {
         status: publishResult.statusCode === 401 ? "TOKEN_EXPIRED" : "FAILED",
         errorCode: publishResult.errorCode,
         error: publishResult.error,
+        apiVersion: publishResult.apiVersion || "202608",
       };
     }
 
@@ -796,6 +799,7 @@ export class LinkedInService {
         memberUrn: connection.linkedinMemberUrn,
         versionId,
         channel: "linkedin",
+        apiVersion: publishResult.apiVersion || "202608",
       },
     });
 
@@ -805,6 +809,7 @@ export class LinkedInService {
       externalPostId: publishResult.postId,
       publishedUrl: publishResult.publishedUrl,
       recordId,
+      apiVersion: publishResult.apiVersion || "202608",
     };
   }
 

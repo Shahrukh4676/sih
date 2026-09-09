@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
           errorCode: result.errorCode,
           code: result.errorCode,
           error: result.error,
+          apiVersion: result.apiVersion || "202608",
         },
         { status: httpStatus }
       );
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
       publishedUrl: result.publishedUrl,
       recordId: result.recordId,
       publishedAt: new Date().toISOString(),
+      apiVersion: result.apiVersion || "202608",
       duplicate: result.duplicate || false,
       idempotent: result.duplicate || false,
     });
