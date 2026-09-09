@@ -12,6 +12,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -73,7 +74,8 @@ export class LinkedInService {
    */
   public static async createOAuthState(
     userId: string,
-    organizationId: string
+    organizationId: string,
+    returnUrl?: string
   ): Promise<string> {
     const state = crypto.randomBytes(32).toString("hex");
     const now = Date.now();
@@ -83,6 +85,7 @@ export class LinkedInService {
       state,
       userId,
       organizationId,
+      returnUrl: returnUrl || "/settings?tab=INTEGRATIONS",
       createdAt: now,
       expiresAt,
       used: false,
@@ -109,7 +112,7 @@ export class LinkedInService {
    */
   public static async consumeOAuthState(
     state: string
-  ): Promise<{ userId: string; organizationId: string } | null> {
+  ): Promise<{ userId: string; organizationId: string; returnUrl?: string } | null> {
     if (!state) return null;
 
     let record: LinkedInOAuthState | null = oauthStatesCache.get(state) || null;
@@ -154,7 +157,11 @@ export class LinkedInService {
       console.warn("[LinkedInService] Error marking state as used in Firestore:", err);
     }
 
-    return { userId: record.userId, organizationId: record.organizationId };
+    return {
+      userId: record.userId,
+      organizationId: record.organizationId,
+      returnUrl: record.returnUrl,
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -163,6 +170,11 @@ export class LinkedInService {
 
   /**
    * Encrypts and securely stores a LinkedIn connection in Firestore
+   */
+  /**
+   * Encrypts and securely stores a LinkedIn connection in Firestore.
+   * Keys by memberId and organizationId so multiple members can connect without overwriting,
+   * while maintaining backward-compatible user-keyed lookups.
    */
   public static async saveLinkedInConnection(params: {
     organizationId: string;
@@ -189,7 +201,8 @@ export class LinkedInService {
       expiresInSeconds,
     } = params;
 
-    const connectionId = `liconn_${organizationId}_${userId}`;
+    const connectionId = `liconn_${organizationId}_${memberId}`;
+    const legacyConnectionId = `liconn_${organizationId}_${userId}`;
     const nowIso = new Date().toISOString();
     const expiresAtIso = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
@@ -213,7 +226,19 @@ export class LinkedInService {
       updatedAt: nowIso,
     };
 
+    // Purge any old revoked/expired cache entries for this organization
+    for (const [key, cached] of connectionsCache.entries()) {
+      if (
+        cached.organizationId === organizationId &&
+        (cached.status !== "CONNECTED" || cached.linkedinMemberId !== memberId)
+      ) {
+        connectionsCache.delete(key);
+      }
+    }
+
+    // Save in memory cache under both member and legacy user keys
     connectionsCache.set(connectionId, connection);
+    connectionsCache.set(legacyConnectionId, connection);
 
     try {
       const ref = doc(db, LINKEDIN_CONNECTIONS_COLLECTION, connectionId);
@@ -222,11 +247,22 @@ export class LinkedInService {
         serverCreatedAt: serverTimestamp(),
         serverUpdatedAt: serverTimestamp(),
       }));
+
+      // Also persist legacy doc ID if different to ensure legacy lookups succeed
+      if (legacyConnectionId !== connectionId) {
+        const legRef = doc(db, LINKEDIN_CONNECTIONS_COLLECTION, legacyConnectionId);
+        await setDoc(legRef, cleanForFirestore({
+          ...connection,
+          id: legacyConnectionId,
+          serverCreatedAt: serverTimestamp(),
+          serverUpdatedAt: serverTimestamp(),
+        }));
+      }
     } catch (err) {
       console.warn("[LinkedInService] Firestore connection write warning:", err);
     }
 
-    // Log immutable audit event
+    // Log immutable audit event with all secrets/credentials strictly redacted
     await logAuditEvent({
       organizationId,
       userId,
@@ -239,6 +275,7 @@ export class LinkedInService {
       ipAddress: "127.0.0.1",
       userAgent: "NEXUS-Engine/Phase8",
       details: {
+        memberId,
         memberUrn,
         memberName: memberName || "LinkedIn Member",
         scopes,
@@ -250,7 +287,9 @@ export class LinkedInService {
   }
 
   /**
-   * Retrieves active connection for organization and user. Checks expiration.
+   * Retrieves active connection for organization and user.
+   * Never aborts prematurely when encountering an inactive/revoked connection.
+   * Checks expiration dynamically and returns the latest valid CONNECTED connection.
    */
   public static async getLinkedInConnection(
     organizationId: string,
@@ -258,15 +297,32 @@ export class LinkedInService {
   ): Promise<LinkedInConnection | null> {
     if (!organizationId) return null;
 
-    // Search in cache first
+    // 1. Search in cache first for active, unexpired CONNECTED connections
+    const matchingCached: LinkedInConnection[] = [];
     for (const conn of connectionsCache.values()) {
-      if (conn.organizationId === organizationId && (!userId || conn.userId === userId)) {
-        if (this.checkAndUpdateExpiration(conn)) return null;
-        return conn;
+      if (
+        conn.organizationId === organizationId &&
+        (!userId || conn.userId === userId) &&
+        conn.status === "CONNECTED"
+      ) {
+        matchingCached.push(conn);
       }
     }
 
-    // Query Firestore
+    // Sort newest connection first
+    matchingCached.sort((a, b) => {
+      const timeA = new Date(a.connectedAt || a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.connectedAt || b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    for (const conn of matchingCached) {
+      if (!this.checkAndUpdateExpiration(conn)) {
+        return conn; // Active, valid connection found in cache
+      }
+    }
+
+    // 2. Query Firestore
     try {
       let q = query(
         collection(db, LINKEDIN_CONNECTIONS_COLLECTION),
@@ -279,10 +335,35 @@ export class LinkedInService {
 
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const conn = snap.docs[0].data() as LinkedInConnection;
-        connectionsCache.set(conn.id, conn);
-        if (this.checkAndUpdateExpiration(conn)) return null;
-        return conn;
+        const matchingDocs: LinkedInConnection[] = [];
+        for (const docSnap of snap.docs) {
+          const conn = docSnap.data() as LinkedInConnection;
+          // Synchronize in-memory cache
+          connectionsCache.set(conn.id, conn);
+          if (conn.status === "CONNECTED") {
+            matchingDocs.push(conn);
+          }
+        }
+
+        // Sort descending by connectedAt / updatedAt
+        matchingDocs.sort((a, b) => {
+          const timeA = new Date(a.connectedAt || a.updatedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.connectedAt || b.updatedAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+
+        // Find first active, unexpired connection
+        for (const conn of matchingDocs) {
+          if (!this.checkAndUpdateExpiration(conn)) {
+            return conn; // Active connection found in Firestore
+          }
+        }
+      }
+
+      // 3. Fallback: if user-specific query returned no active connection, check org-level connection
+      if (userId) {
+        const orgFallback = await this.getLinkedInConnection(organizationId, undefined);
+        if (orgFallback) return orgFallback;
       }
     } catch (err) {
       console.warn("[LinkedInService] Firestore connection query warning:", err);
@@ -329,47 +410,85 @@ export class LinkedInService {
   }
 
   /**
-   * Disconnects and revokes a user's LinkedIn connection
+   * Completely disconnects, revokes, and deletes stored connection records and cached state.
+   * Ensures Account A's state is completely invalidated and does not block Account B from connecting.
    */
   public static async disconnectLinkedIn(
     organizationId: string,
-    userId: string
+    userId?: string
   ): Promise<boolean> {
-    const connection = await this.getLinkedInConnection(organizationId, userId);
-    if (!connection) return false;
+    if (!organizationId) return false;
 
-    connection.status = "REVOKED";
-    connection.accessTokenEncrypted = ""; // Wipe encrypted credentials
-    connection.updatedAt = new Date().toISOString();
+    let disconnectedCount = 0;
 
-    connectionsCache.set(connection.id, connection);
+    // 1. Invalidate and completely remove matching cached connections
+    const toDeleteCacheKeys: string[] = [];
+    for (const [key, conn] of connectionsCache.entries()) {
+      if (conn.organizationId === organizationId && (!userId || conn.userId === userId)) {
+        toDeleteCacheKeys.push(key);
+      }
+    }
+    for (const key of toDeleteCacheKeys) {
+      connectionsCache.delete(key);
+      disconnectedCount++;
+    }
 
+    // 2. Query Firestore and delete connection documents
     try {
-      const ref = doc(db, LINKEDIN_CONNECTIONS_COLLECTION, connection.id);
-      await updateDoc(ref, {
-        status: "REVOKED",
-        accessTokenEncrypted: "",
-        updatedAt: serverTimestamp(),
-      });
+      let q = query(
+        collection(db, LINKEDIN_CONNECTIONS_COLLECTION),
+        where("organizationId", "==", organizationId)
+      );
+
+      if (userId) {
+        q = query(q, where("userId", "==", userId));
+      }
+
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        for (const docSnap of snap.docs) {
+          const conn = docSnap.data() as LinkedInConnection;
+          connectionsCache.delete(conn.id);
+          connectionsCache.delete(`liconn_${organizationId}_${conn.userId}`);
+          connectionsCache.delete(`liconn_${organizationId}_${conn.linkedinMemberId}`);
+
+          // Delete document to completely wipe credentials and prevent ghost records
+          await deleteDoc(doc(db, LINKEDIN_CONNECTIONS_COLLECTION, docSnap.id));
+          disconnectedCount++;
+
+          await logAuditEvent({
+            organizationId,
+            userId: userId || conn.userId,
+            userEmail: conn.memberEmail || "user@nexus.ai",
+            userRole: "ADMIN",
+            action: "LINKEDIN_DISCONNECTED",
+            resourceType: "LINKEDIN_CONNECTION",
+            resourceId: docSnap.id,
+            severity: "INFO",
+            ipAddress: "127.0.0.1",
+            userAgent: "NEXUS-Engine/Phase8",
+            details: { memberUrn: conn.linkedinMemberUrn },
+          });
+        }
+      } else if (userId) {
+        // Fallback: check if org-level connection exists
+        const orgSnap = await getDocs(
+          query(collection(db, LINKEDIN_CONNECTIONS_COLLECTION), where("organizationId", "==", organizationId))
+        );
+        for (const docSnap of orgSnap.docs) {
+          const conn = docSnap.data() as LinkedInConnection;
+          connectionsCache.delete(conn.id);
+          connectionsCache.delete(`liconn_${organizationId}_${conn.userId}`);
+          connectionsCache.delete(`liconn_${organizationId}_${conn.linkedinMemberId}`);
+          await deleteDoc(doc(db, LINKEDIN_CONNECTIONS_COLLECTION, docSnap.id));
+          disconnectedCount++;
+        }
+      }
     } catch (err) {
       console.warn("[LinkedInService] Disconnect Firestore error:", err);
     }
 
-    await logAuditEvent({
-      organizationId,
-      userId,
-      userEmail: connection.memberEmail || "user@nexus.ai",
-      userRole: "ADMIN",
-      action: "LINKEDIN_DISCONNECTED",
-      resourceType: "LINKEDIN_CONNECTION",
-      resourceId: connection.id,
-      severity: "INFO",
-      ipAddress: "127.0.0.1",
-      userAgent: "NEXUS-Engine/Phase8",
-      details: { memberUrn: connection.linkedinMemberUrn },
-    });
-
-    return true;
+    return disconnectedCount > 0;
   }
 
   // --------------------------------------------------------------------------

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Settings as SettingsIcon,
   User,
@@ -23,6 +24,8 @@ import {
   ExternalLink,
   Unlink,
   RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/ui/Icons";
 import { useAuth } from "@/context/AuthContext";
@@ -41,9 +44,15 @@ type SettingsTab =
   | "INTEGRATIONS"
   | "SECURITY";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { userProfile, organization } = useAuth();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("ACCOUNT");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as SettingsTab | null;
+  const connectedParam = searchParams.get("connected");
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    tabParam === "INTEGRATIONS" || connectedParam === "true" ? "INTEGRATIONS" : "ACCOUNT"
+  );
   const [saved, setSaved] = useState(false);
 
   // Form states
@@ -65,6 +74,21 @@ export default function SettingsPage() {
   // AI Configuration
   const [activeAiProvider, setActiveAiProvider] = useState("gemini");
   const [temperature, setTemperature] = useState("0.2");
+
+  // Multi-User AI Provider state (Phase 13)
+  const [aiProviderMode, setAiProviderMode] = useState<"NEXUS_DEFAULT" | "BYOK_GEMINI" | "LOCAL_OLLAMA">("NEXUS_DEFAULT");
+  const [geminiModel, setGeminiModel] = useState("gemini-1.5-flash");
+  const [byokApiKeyInput, setByokApiKeyInput] = useState("");
+  const [byokMasked, setByokMasked] = useState<string | null>(null);
+  const [byokConfigured, setByokConfigured] = useState(false);
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState("http://localhost:11434");
+  const [ollamaModel, setOllamaModel] = useState("llama3.2");
+  const [ollamaOnline, setOllamaOnline] = useState(false);
+  const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [savingAiSettings, setSavingAiSettings] = useState(false);
+
 
   // Members Management
   const [members, setMembers] = useState([
@@ -115,10 +139,41 @@ export default function SettingsPage() {
   const [loadingLinkedin, setLoadingLinkedin] = useState(false);
   const [disconnectingLinkedin, setDisconnectingLinkedin] = useState(false);
 
+  // X Integration State
+  const [xData, setXData] = useState<{
+    connected: boolean;
+    status?: string;
+    user?: { id: string; username: string; name: string; avatar?: string };
+    scopes?: string[];
+  } | null>(null);
+  const [loadingX, setLoadingX] = useState(false);
+  const [disconnectingX, setDisconnectingX] = useState(false);
+
+  // Instagram Integration State
+  const [instagramData, setInstagramData] = useState<{
+    connected: boolean;
+    status?: string;
+    user?: { id: string; username: string; accountType?: string };
+  } | null>(null);
+  const [loadingInstagram, setLoadingInstagram] = useState(false);
+  const [disconnectingInstagram, setDisconnectingInstagram] = useState(false);
+
+  const orgId = organization?.id || userProfile?.organizationId || "org_primary";
+  const userId = userProfile?.uid || "usr_admin_default";
+
   const fetchLinkedinStatus = useCallback(async () => {
     try {
       setLoadingLinkedin(true);
-      const res = await fetch("/api/integrations/linkedin/status");
+      const res = await fetch(
+        `/api/integrations/linkedin/status?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        }
+      );
       const data = await res.json();
       if (data.connected) {
         setLinkedinData(data);
@@ -130,24 +185,162 @@ export default function SettingsPage() {
     } finally {
       setLoadingLinkedin(false);
     }
-  }, []);
+  }, [orgId, userId]);
+
+  const fetchXStatus = useCallback(async () => {
+    try {
+      setLoadingX(true);
+      const res = await fetch(
+        `/api/integrations/x/status?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }
+      );
+      const data = await res.json();
+      setXData(data);
+    } catch (err) {
+      console.error("Error checking X status:", err);
+    } finally {
+      setLoadingX(false);
+    }
+  }, [orgId, userId]);
+
+  const fetchInstagramStatus = useCallback(async () => {
+    try {
+      setLoadingInstagram(true);
+      const res = await fetch(
+        `/api/integrations/instagram/status?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }
+      );
+      const data = await res.json();
+      setInstagramData(data);
+    } catch (err) {
+      console.error("Error checking Instagram status:", err);
+    } finally {
+      setLoadingInstagram(false);
+    }
+  }, [orgId, userId]);
+
+  const fetchAiProviderSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ai/providers?organizationId=${encodeURIComponent(orgId)}`);
+      const data = await res.json();
+      if (data.success && data.settings) {
+        setAiProviderMode(data.settings.provider || "NEXUS_DEFAULT");
+        setGeminiModel(data.settings.geminiModel || "gemini-1.5-flash");
+        setByokConfigured(Boolean(data.settings.byokConfigured));
+        setByokMasked(data.settings.byokKeyMasked || null);
+        setOllamaBaseUrl(data.settings.ollamaBaseUrl || "http://localhost:11434");
+        setOllamaModel(data.settings.ollamaModel || "llama3.2");
+      }
+      if (data.ollamaStatus) {
+        setOllamaOnline(Boolean(data.ollamaStatus.running));
+        setOllamaModelsList(data.ollamaStatus.models || []);
+      }
+    } catch (err) {
+      console.error("Error fetching AI settings:", err);
+    }
+  }, [orgId]);
 
   useEffect(() => {
-    if (activeTab === "INTEGRATIONS") {
+    if (tabParam === "INTEGRATIONS" || connectedParam === "true" || connectedParam === "x" || connectedParam === "instagram") {
+      setActiveTab("INTEGRATIONS");
       fetchLinkedinStatus();
+      fetchXStatus();
+      fetchInstagramStatus();
+    } else if (activeTab === "INTEGRATIONS") {
+      fetchLinkedinStatus();
+      fetchXStatus();
+      fetchInstagramStatus();
+    } else if (activeTab === "AI") {
+      fetchAiProviderSettings();
     }
-  }, [activeTab, fetchLinkedinStatus]);
+  }, [tabParam, connectedParam, activeTab, fetchLinkedinStatus, fetchXStatus, fetchInstagramStatus, fetchAiProviderSettings]);
+
+  const handleTestAiConnection = async () => {
+    try {
+      setAiTesting(true);
+      setAiTestResult(null);
+      const res = await fetch("/api/ai/providers/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: orgId,
+          provider: aiProviderMode,
+          byokApiKey: byokApiKeyInput || undefined,
+          geminiModel,
+          ollamaBaseUrl,
+          ollamaModel,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.result?.success) {
+        setAiTestResult({
+          success: true,
+          message: `Connection successful (${data.result.latencyMs}ms) with ${data.result.provider} [${data.result.model}]`,
+        });
+      } else {
+        setAiTestResult({
+          success: false,
+          message: data.result?.error || data.error || "Connection test failed",
+        });
+      }
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      setAiTestResult({ success: false, message: errorObj?.message || "Test failed" });
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
+  const handleSaveAiSettings = async () => {
+    try {
+      setSavingAiSettings(true);
+      const res = await fetch("/api/ai/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: orgId,
+          provider: aiProviderMode,
+          byokApiKey: byokApiKeyInput || undefined,
+          geminiModel,
+          ollamaBaseUrl,
+          ollamaModel,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setByokConfigured(Boolean(data.settings.byokConfigured));
+        setByokMasked(data.settings.byokKeyMasked || null);
+        setByokApiKeyInput("");
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save AI settings:", err);
+    } finally {
+      setSavingAiSettings(false);
+    }
+  };
 
   const handleDisconnectLinkedin = async () => {
     if (disconnectingLinkedin) return;
     try {
       setDisconnectingLinkedin(true);
+      setLinkedinData({ connected: false, status: "NOT_CONNECTED" });
       const res = await fetch("/api/integrations/linkedin/disconnect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
         body: JSON.stringify({
-          organizationId: organization?.id || "org_primary",
-          userId: userProfile?.uid || "usr_admin_default",
+          organizationId: orgId,
+          userId: userId,
         }),
       });
       if (res.ok) {
@@ -157,6 +350,42 @@ export default function SettingsPage() {
       console.error("Failed to disconnect LinkedIn:", err);
     } finally {
       setDisconnectingLinkedin(false);
+    }
+  };
+
+  const handleDisconnectX = async () => {
+    if (disconnectingX) return;
+    try {
+      setDisconnectingX(true);
+      setXData({ connected: false, status: "NOT_CONNECTED" });
+      const res = await fetch("/api/integrations/x/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId, userId }),
+      });
+      if (res.ok) await fetchXStatus();
+    } catch (err) {
+      console.error("Failed to disconnect X:", err);
+    } finally {
+      setDisconnectingX(false);
+    }
+  };
+
+  const handleDisconnectInstagram = async () => {
+    if (disconnectingInstagram) return;
+    try {
+      setDisconnectingInstagram(true);
+      setInstagramData({ connected: false, status: "NOT_CONNECTED" });
+      const res = await fetch("/api/integrations/instagram/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId, userId }),
+      });
+      if (res.ok) await fetchInstagramStatus();
+    } catch (err) {
+      console.error("Failed to disconnect Instagram:", err);
+    } finally {
+      setDisconnectingInstagram(false);
     }
   };
 
@@ -393,47 +622,230 @@ export default function SettingsPage() {
 
           {/* TAB 4: AI CONFIGURATION */}
           {activeTab === "AI" && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">
-                  AI Model Configuration (₹0 Free-First Architecture)
-                </CardTitle>
-                <p className="text-xs text-slate-500">
-                  Select between Google Gemini Free Tier REST API or Local Ollama
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select
-                    label="Active AI Provider"
-                    value={activeAiProvider}
-                    onChange={(e) => setActiveAiProvider(e.target.value)}
-                    options={[
-                      { value: "gemini", label: "Google Gemini 2.5 Flash (Free Tier REST API)" },
-                      { value: "ollama", label: "Local Ollama Fallback (http://localhost:11434)" },
-                    ]}
-                  />
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-semibold">
+                        Multi-User AI Provider Engine (Phase 13)
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">
+                        Choose between managed zero-cost cloud AI, your personal BYOK Google Gemini key, or offline local Ollama.
+                      </p>
+                    </div>
+                    <Badge variant={aiProviderMode === "LOCAL_OLLAMA" ? "warning" : "verified"} size="sm">
+                      {aiProviderMode.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {/* Provider Selection Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Card 1: Managed Gemini */}
+                    <div
+                      onClick={() => setAiProviderMode("NEXUS_DEFAULT")}
+                      className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between gap-2 ${
+                        aiProviderMode === "NEXUS_DEFAULT"
+                          ? "border-blue-500 bg-blue-50/50 shadow-xs ring-1 ring-blue-500"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 text-xs">NEXUS Managed Gemini</span>
+                          {aiProviderMode === "NEXUS_DEFAULT" && <Check className="w-4 h-4 text-blue-600" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Cloud-hosted Gemini 1.5 Flash. Zero configuration, automated pipeline scaling.
+                        </p>
+                      </div>
+                      <Badge variant="verified" size="sm">Zero Config</Badge>
+                    </div>
 
-                  <Select
-                    label="Generation Temperature"
-                    value={temperature}
-                    onChange={(e) => setTemperature(e.target.value)}
-                    options={[
-                      { value: "0.1", label: "0.1 (Strict Deterministic / Advisories)" },
-                      { value: "0.2", label: "0.2 (Balanced Analytical - Recommended)" },
-                      { value: "0.5", label: "0.5 (Creative / Social Posts)" },
-                    ]}
-                  />
-                </div>
+                    {/* Card 2: BYOK Gemini */}
+                    <div
+                      onClick={() => setAiProviderMode("BYOK_GEMINI")}
+                      className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between gap-2 ${
+                        aiProviderMode === "BYOK_GEMINI"
+                          ? "border-blue-500 bg-blue-50/50 shadow-xs ring-1 ring-blue-500"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 text-xs">BYOK Gemini Key</span>
+                          {aiProviderMode === "BYOK_GEMINI" && <Check className="w-4 h-4 text-blue-600" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Your Google AI Studio API Key. Encrypted at rest via AES-256-GCM.
+                        </p>
+                      </div>
+                      <Badge variant={byokConfigured ? "verified" : "neutral"} size="sm">
+                        {byokConfigured ? "Key Configured" : "Needs Key"}
+                      </Badge>
+                    </div>
 
-                <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800 space-y-1">
-                  <span className="font-semibold block">Automatic Failover Engine:</span>
-                  <p>
-                    If the primary Google Gemini free tier hits quota limits or is unreachable, NEXUS AI automatically routes requests to your local Ollama instance (default model: <code>llama3.2</code>) without pipeline downtime.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                    {/* Card 3: Local Ollama */}
+                    <div
+                      onClick={() => setAiProviderMode("LOCAL_OLLAMA")}
+                      className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between gap-2 ${
+                        aiProviderMode === "LOCAL_OLLAMA"
+                          ? "border-amber-500 bg-amber-50/50 shadow-xs ring-1 ring-amber-500"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 text-xs">Local Ollama (Offline)</span>
+                          {aiProviderMode === "LOCAL_OLLAMA" && <Check className="w-4 h-4 text-amber-600" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          100% on-premise inference. Privacy-first, zero egress to external clouds.
+                        </p>
+                      </div>
+                      <Badge variant={ollamaOnline ? "verified" : "neutral"} size="sm">
+                        {ollamaOnline ? "Daemon Online" : "Daemon Offline"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* BYOK Configuration Form */}
+                  {aiProviderMode === "BYOK_GEMINI" && (
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/30 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-slate-800">
+                          Google AI Studio API Key (AES-256-GCM Encrypted)
+                        </span>
+                        {byokMasked && (
+                          <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Active: {byokMasked}
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder={byokConfigured ? "Enter new key to rotate existing key" : "Paste AIzaSy... key from Google AI Studio"}
+                        value={byokApiKeyInput}
+                        onChange={(e) => setByokApiKeyInput(e.target.value)}
+                        className="text-xs"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <Select
+                          label="Target Gemini Model"
+                          value={geminiModel}
+                          onChange={(e) => setGeminiModel(e.target.value)}
+                          options={[
+                            { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Ultra-fast & free tier)" },
+                            { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro (Deep complex analysis)" },
+                            { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash Experimental" },
+                          ]}
+                        />
+                        <Select
+                          label="Sampling Temperature"
+                          value={temperature}
+                          onChange={(e) => setTemperature(e.target.value)}
+                          options={[
+                            { value: "0.1", label: "0.1 (Strict Deterministic / Advisories)" },
+                            { value: "0.2", label: "0.2 (Balanced Analytical - Recommended)" },
+                            { value: "0.5", label: "0.5 (Creative / Social Posts)" },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Local Ollama Configuration Form */}
+                  {aiProviderMode === "LOCAL_OLLAMA" && (
+                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/30 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-slate-800">Local Ollama Host Daemon</span>
+                          <span className={`w-2 h-2 rounded-full ${ollamaOnline ? "bg-emerald-500" : "bg-slate-300"}`} />
+                          <span className="text-[11px] text-slate-500">{ollamaOnline ? "Daemon detected on port 11434" : "Daemon not detected"}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={fetchAiProviderSettings}
+                          leftIcon={<RefreshCw className="w-3 h-3" />}
+                        >
+                          Scan Host
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input
+                          label="Ollama Base URL"
+                          value={ollamaBaseUrl}
+                          onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                          placeholder="http://localhost:11434"
+                          className="text-xs"
+                        />
+                        {ollamaModelsList.length > 0 ? (
+                          <Select
+                            label="Detected Model"
+                            value={ollamaModel}
+                            onChange={(e) => setOllamaModel(e.target.value)}
+                            options={ollamaModelsList.map((m) => ({ value: m, label: m }))}
+                          />
+                        ) : (
+                          <Input
+                            label="Model Tag"
+                            value={ollamaModel}
+                            onChange={(e) => setOllamaModel(e.target.value)}
+                            placeholder="llama3.2"
+                            className="text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Managed Gemini Info Banner */}
+                  {aiProviderMode === "NEXUS_DEFAULT" && (
+                    <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800 space-y-1">
+                      <span className="font-semibold block">Managed Zero-Cost Cloud Pipeline:</span>
+                      <p>
+                        Using high-efficiency Google Gemini REST endpoints. If rate limits are encountered, requests transparently fall back to local offline Ollama models without breaking active publishing runs.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Test Feedback Banner */}
+                  {aiTestResult && (
+                    <div className={`p-3 rounded-lg text-xs flex items-center gap-2 ${
+                      aiTestResult.success ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"
+                    }`}>
+                      {aiTestResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />}
+                      <span>{aiTestResult.message}</span>
+                    </div>
+                  )}
+
+                  {/* Bottom Action Row */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestAiConnection}
+                      disabled={aiTesting}
+                      leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${aiTesting ? "animate-spin" : ""}`} />}
+                    >
+                      {aiTesting ? "Testing Connection..." : "Test Connection"}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveAiSettings}
+                      disabled={savingAiSettings}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      leftIcon={<Save className="w-3.5 h-3.5" />}
+                    >
+                      {savingAiSettings ? "Saving Settings..." : "Save AI Settings"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* TAB 5: BRAND VOICE */}
@@ -530,6 +942,16 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 pl-8 sm:pl-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchLinkedinStatus}
+                      disabled={loadingLinkedin}
+                      title="Sync status from server"
+                      className="text-slate-600 hover:text-slate-800"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingLinkedin ? "animate-spin" : ""}`} />
+                    </Button>
                     {linkedinData?.connected ? (
                       <Button
                         variant="outline"
@@ -542,7 +964,7 @@ export default function SettingsPage() {
                         {disconnectingLinkedin ? "Disconnecting..." : "Disconnect"}
                       </Button>
                     ) : (
-                      <a href="/api/integrations/linkedin/connect">
+                      <a href={`/api/integrations/linkedin/connect?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/settings?tab=INTEGRATIONS&connected=true")}`}>
                         <Button
                           variant="primary"
                           size="sm"
@@ -550,6 +972,140 @@ export default function SettingsPage() {
                           leftIcon={<LinkedInIcon className="w-3.5 h-3.5" />}
                         >
                           Connect LinkedIn
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* X (Twitter) Integration (Phase 11) */}
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-black flex items-center justify-center text-white">
+                        <Share2 className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-bold text-slate-900 text-sm">X (Twitter) v2 Integration</span>
+                      {xData?.connected ? (
+                        <Badge variant="verified" size="sm" dot>
+                          Connected
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" size="sm">
+                          Not Connected
+                        </Badge>
+                      )}
+                    </div>
+                    {xData?.connected && xData.user ? (
+                      <div className="text-[11px] text-slate-600 space-y-0.5 pl-8">
+                        <div><span className="font-medium text-slate-800">Account:</span> @{xData.user.username} ({xData.user.name})</div>
+                        <div className="text-slate-400">Features: OAuth 2.0 PKCE, Thread auto-segmentation (&le;280 chars)</div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-600 pl-8">
+                        Connect X account via OAuth 2.0 PKCE to broadcast verified threads and cryptographic updates.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 pl-8 sm:pl-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchXStatus}
+                      disabled={loadingX}
+                      title="Sync status"
+                      className="text-slate-600 hover:text-slate-800"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingX ? "animate-spin" : ""}`} />
+                    </Button>
+                    {xData?.connected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectX}
+                        disabled={disconnectingX}
+                        className="text-rose-600 hover:text-rose-700 hover:border-rose-300"
+                        leftIcon={<Unlink className="w-3.5 h-3.5" />}
+                      >
+                        {disconnectingX ? "Disconnecting..." : "Disconnect"}
+                      </Button>
+                    ) : (
+                      <a href={`/api/integrations/x/connect?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/settings?tab=INTEGRATIONS&connected=x")}`}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-black hover:bg-slate-800 text-white"
+                          leftIcon={<Share2 className="w-3.5 h-3.5" />}
+                        >
+                          Connect X
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Instagram Graph API Integration (Phase 11) */}
+                <div className="p-4 rounded-xl border border-pink-200 bg-pink-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-purple-600 to-pink-500 flex items-center justify-center text-white">
+                        <Share2 className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-bold text-slate-900 text-sm">Instagram Graph API v21.0</span>
+                      {instagramData?.connected ? (
+                        <Badge variant="verified" size="sm" dot>
+                          Connected
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" size="sm">
+                          Not Connected
+                        </Badge>
+                      )}
+                    </div>
+                    {instagramData?.connected && instagramData.user ? (
+                      <div className="text-[11px] text-slate-600 space-y-0.5 pl-8">
+                        <div><span className="font-medium text-slate-800">Account:</span> @{instagramData.user.username} ({instagramData.user.accountType})</div>
+                        <div className="text-slate-400">Features: Media container upload, Caption formatting with hashtags</div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-600 pl-8">
+                        Connect Instagram Business account via Graph API to publish media containers and visual infographics.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 pl-8 sm:pl-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchInstagramStatus}
+                      disabled={loadingInstagram}
+                      title="Sync status"
+                      className="text-slate-600 hover:text-slate-800"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingInstagram ? "animate-spin" : ""}`} />
+                    </Button>
+                    {instagramData?.connected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectInstagram}
+                        disabled={disconnectingInstagram}
+                        className="text-rose-600 hover:text-rose-700 hover:border-rose-300"
+                        leftIcon={<Unlink className="w-3.5 h-3.5" />}
+                      >
+                        {disconnectingInstagram ? "Disconnecting..." : "Disconnect"}
+                      </Button>
+                    ) : (
+                      <a href={`/api/integrations/instagram/connect?organizationId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/settings?tab=INTEGRATIONS&connected=instagram")}`}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white"
+                          leftIcon={<Share2 className="w-3.5 h-3.5" />}
+                        >
+                          Connect Instagram
                         </Button>
                       </a>
                     )}
@@ -715,5 +1271,13 @@ export default function SettingsPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500 text-sm">Loading settings...</div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }

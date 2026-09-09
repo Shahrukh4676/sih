@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   SendHorizontal,
   Share2,
@@ -40,9 +41,12 @@ interface LinkedInStatus {
   connectedAt?: string;
 }
 
-export default function PublishingCenterPage() {
+function PublishingCenterContent() {
   const { userProfile } = useAuth();
+  const searchParams = useSearchParams();
+  const connectedParam = searchParams.get("connected");
   const organizationId = userProfile?.organizationId || "org_primary";
+  const userId = userProfile?.uid || "usr_admin_default";
 
   const [activeTab, setActiveTab] = useState<
     "CHANNELS" | "READY" | "HISTORY"
@@ -50,6 +54,8 @@ export default function PublishingCenterPage() {
 
   // Real API state
   const [linkedinStatus, setLinkedinStatus] = useState<LinkedInStatus | null>(null);
+  const [xStatus, setXStatus] = useState<{ connected: boolean; user?: { username: string; name: string } } | null>(null);
+  const [instagramStatus, setInstagramStatus] = useState<{ connected: boolean; user?: { username: string } } | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [records, setRecords] = useState<PublishingRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -65,7 +71,13 @@ export default function PublishingCenterPage() {
   const fetchLinkedinStatus = useCallback(async () => {
     try {
       setStatusLoading(true);
-      const res = await fetch(`/api/integrations/linkedin/status?organizationId=${organizationId}`);
+      const res = await fetch(
+        `/api/integrations/linkedin/status?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }
+      );
       const data = await res.json();
       setLinkedinStatus(data);
     } catch (err) {
@@ -73,7 +85,39 @@ export default function PublishingCenterPage() {
     } finally {
       setStatusLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, userId]);
+
+  const fetchXStatus = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/integrations/x/status?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }
+      );
+      const data = await res.json();
+      setXStatus(data);
+    } catch (err) {
+      console.error("Error fetching X status:", err);
+    }
+  }, [organizationId, userId]);
+
+  const fetchInstagramStatus = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/integrations/instagram/status?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }
+      );
+      const data = await res.json();
+      setInstagramStatus(data);
+    } catch (err) {
+      console.error("Error fetching Instagram status:", err);
+    }
+  }, [organizationId, userId]);
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -107,18 +151,24 @@ export default function PublishingCenterPage() {
 
   useEffect(() => {
     fetchLinkedinStatus();
+    fetchXStatus();
+    fetchInstagramStatus();
     fetchRecords();
     fetchReadyContent();
-  }, [fetchLinkedinStatus, fetchRecords, fetchReadyContent]);
+  }, [fetchLinkedinStatus, fetchXStatus, fetchInstagramStatus, fetchRecords, fetchReadyContent, connectedParam]);
 
   const handleDisconnect = async () => {
     try {
+      setLinkedinStatus({ connected: false, status: "NOT_CONNECTED" });
       const res = await fetch("/api/integrations/linkedin/disconnect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
         body: JSON.stringify({
           organizationId,
-          userId: userProfile?.uid || "usr_admin_default",
+          userId,
         }),
       });
       if (res.ok) {
@@ -126,6 +176,34 @@ export default function PublishingCenterPage() {
       }
     } catch (err) {
       console.error("Disconnect error:", err);
+    }
+  };
+
+  const handleDisconnectX = async () => {
+    try {
+      setXStatus({ connected: false });
+      const res = await fetch("/api/integrations/x/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, userId }),
+      });
+      if (res.ok) await fetchXStatus();
+    } catch (err) {
+      console.error("X disconnect error:", err);
+    }
+  };
+
+  const handleDisconnectInstagram = async () => {
+    try {
+      setInstagramStatus({ connected: false });
+      const res = await fetch("/api/integrations/instagram/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, userId }),
+      });
+      if (res.ok) await fetchInstagramStatus();
+    } catch (err) {
+      console.error("Instagram disconnect error:", err);
     }
   };
 
@@ -150,16 +228,15 @@ export default function PublishingCenterPage() {
       if (data.success) {
         setPublishFeedback({
           type: "success",
-          message: `Successfully published "${title}" to LinkedIn!`,
-          postId: data.externalPostId,
+          message: `Successfully broadcast "${title}" to LinkedIn!`,
+          postId: data.postId,
         });
         await fetchRecords();
-        await fetchLinkedinStatus();
         await fetchReadyContent();
       } else {
         setPublishFeedback({
           type: "error",
-          message: data.error || `Publishing failed with status: ${data.status}`,
+          message: data.error || "LinkedIn publishing failed.",
         });
       }
     } catch (err: unknown) {
@@ -167,6 +244,92 @@ export default function PublishingCenterPage() {
       setPublishFeedback({
         type: "error",
         message: errorObj?.message || "Failed to dispatch publish request",
+      });
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  const handlePublishToX = async (contentId: string, title: string, itemOrgId?: string) => {
+    try {
+      setPublishingId(contentId);
+      setPublishFeedback(null);
+      const targetOrgId = itemOrgId || organizationId;
+
+      const res = await fetch("/api/integrations/x/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentId,
+          versionId: "v1",
+          organizationId: targetOrgId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setPublishFeedback({
+          type: "success",
+          message: `Successfully posted "${title}" to X (${data.threadCount || 1} tweet${(data.threadCount || 1) > 1 ? "s" : ""})!`,
+          postId: data.postId,
+        });
+        await fetchRecords();
+        await fetchReadyContent();
+      } else {
+        setPublishFeedback({
+          type: "error",
+          message: data.error || "X publishing failed.",
+        });
+      }
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      setPublishFeedback({
+        type: "error",
+        message: errorObj?.message || "Failed to dispatch X publish request",
+      });
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  const handlePublishToInstagram = async (contentId: string, title: string, itemOrgId?: string) => {
+    try {
+      setPublishingId(contentId);
+      setPublishFeedback(null);
+      const targetOrgId = itemOrgId || organizationId;
+
+      const res = await fetch("/api/integrations/instagram/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentId,
+          versionId: "v1",
+          organizationId: targetOrgId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setPublishFeedback({
+          type: "success",
+          message: `Successfully posted "${title}" to Instagram!`,
+          postId: data.postId,
+        });
+        await fetchRecords();
+        await fetchReadyContent();
+      } else {
+        setPublishFeedback({
+          type: "error",
+          message: data.error || "Instagram publishing failed.",
+        });
+      }
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      setPublishFeedback({
+        type: "error",
+        message: errorObj?.message || "Failed to dispatch Instagram publish request",
       });
     } finally {
       setPublishingId(null);
@@ -188,18 +351,20 @@ export default function PublishingCenterPage() {
       id: "X_TWITTER",
       name: "X (Twitter) Broadcast",
       desc: "Publish viral threads and quote cards with cryptographic media attachments.",
-      connected: false,
-      statusLabel: "Future Phase",
-      badgeVariant: "neutral" as const,
+      connected: xStatus?.connected,
+      user: xStatus?.user,
+      statusLabel: xStatus?.connected ? `Connected (@${xStatus?.user?.username || "user"})` : "OAuth 2.0 PKCE",
+      badgeVariant: xStatus?.connected ? ("verified" as const) : ("neutral" as const),
       icon: Share2,
     },
     {
       id: "INSTAGRAM",
       name: "Instagram Business",
-      desc: "Publish visual quote cards, infographics, and carousel media.",
-      connected: false,
-      statusLabel: "Future Phase",
-      badgeVariant: "neutral" as const,
+      desc: "Publish visual quote cards, infographics, and carousel media via Graph API v21.0.",
+      connected: instagramStatus?.connected,
+      user: instagramStatus?.user,
+      statusLabel: instagramStatus?.connected ? `Connected (@${instagramStatus?.user?.username || "business"})` : "Graph API OAuth",
+      badgeVariant: instagramStatus?.connected ? ("verified" as const) : ("neutral" as const),
       icon: Share2,
     },
     {
@@ -355,28 +520,108 @@ export default function PublishingCenterPage() {
                     {ch.connected ? "Active Connection" : "Not Connected"}
                   </span>
                   {isLinkedIn ? (
-                    ch.connected ? (
+                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="xs"
-                        onClick={handleDisconnect}
-                        className="text-rose-600 hover:text-rose-700 hover:border-rose-200"
-                        leftIcon={<Unlink className="w-3 h-3" />}
+                        onClick={fetchLinkedinStatus}
+                        disabled={statusLoading}
+                        title="Sync status from server"
+                        className="text-slate-500 hover:text-slate-800"
                       >
-                        Disconnect
+                        <RefreshCw className={`w-3 h-3 ${statusLoading ? "animate-spin" : ""}`} />
                       </Button>
-                    ) : (
-                      <a href="/api/integrations/linkedin/connect">
+                      {ch.connected ? (
                         <Button
-                          variant="primary"
+                          variant="outline"
                           size="xs"
-                          className="bg-[#0A66C2] hover:bg-[#004182] text-white"
-                          leftIcon={<LinkedInIcon className="w-3 h-3" />}
+                          onClick={handleDisconnect}
+                          className="text-rose-600 hover:text-rose-700 hover:border-rose-200"
+                          leftIcon={<Unlink className="w-3 h-3" />}
                         >
-                          Connect LinkedIn
+                          Disconnect
                         </Button>
-                      </a>
-                    )
+                      ) : (
+                        <a href={`/api/integrations/linkedin/connect?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/publishing?connected=true")}`}>
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            className="bg-[#0A66C2] hover:bg-[#004182] text-white"
+                            leftIcon={<LinkedInIcon className="w-3 h-3" />}
+                          >
+                            Connect LinkedIn
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  ) : ch.id === "X_TWITTER" ? (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={fetchXStatus}
+                        title="Sync status"
+                        className="text-slate-500 hover:text-slate-800"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                      {ch.connected ? (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={handleDisconnectX}
+                          className="text-rose-600 hover:text-rose-700 hover:border-rose-200"
+                          leftIcon={<Unlink className="w-3 h-3" />}
+                        >
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <a href={`/api/integrations/x/connect?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/publishing?connected=x")}`}>
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            className="bg-black hover:bg-slate-800 text-white"
+                            leftIcon={<Share2 className="w-3 h-3" />}
+                          >
+                            Connect X
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  ) : ch.id === "INSTAGRAM" ? (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={fetchInstagramStatus}
+                        title="Sync status"
+                        className="text-slate-500 hover:text-slate-800"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                      {ch.connected ? (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={handleDisconnectInstagram}
+                          className="text-rose-600 hover:text-rose-700 hover:border-rose-200"
+                          leftIcon={<Unlink className="w-3 h-3" />}
+                        >
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <a href={`/api/integrations/instagram/connect?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/publishing?connected=instagram")}`}>
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white"
+                            leftIcon={<Share2 className="w-3 h-3" />}
+                          >
+                            Connect Instagram
+                          </Button>
+                        </a>
+                      )}
+                    </div>
                   ) : ch.link ? (
                     <Link href={ch.link}>
                       <Button variant="outline" size="xs">
@@ -424,7 +669,7 @@ export default function PublishingCenterPage() {
                       <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
                         isOverLimit ? "bg-rose-50 text-rose-700 font-bold" : "bg-slate-100 text-slate-600"
                       }`}>
-                        {charCount} / 3000 chars
+                        {charCount} chars
                       </span>
                     </div>
                     <h4 className="text-sm font-bold text-slate-900">
@@ -435,12 +680,13 @@ export default function PublishingCenterPage() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <Link href={`/content/${item.id}`}>
                       <Button variant="outline" size="xs">
                         Inspect
                       </Button>
                     </Link>
+                    {/* LinkedIn Publish Button */}
                     <Button
                       variant="primary"
                       size="xs"
@@ -452,8 +698,30 @@ export default function PublishingCenterPage() {
                       {isPublishing
                         ? "Publishing..."
                         : linkedinStatus?.connected
-                        ? "Publish to LinkedIn"
-                        : "Connect LinkedIn to Post"}
+                        ? "Post LinkedIn"
+                        : "Connect LinkedIn"}
+                    </Button>
+                    {/* X Publish Button */}
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      disabled={isPublishing || !xStatus?.connected}
+                      onClick={() => handlePublishToX(item.id, item.title, item.organizationId)}
+                      className="bg-black hover:bg-slate-800 text-white"
+                      leftIcon={<Share2 className="w-3.5 h-3.5" />}
+                    >
+                      {xStatus?.connected ? "Post X" : "Connect X"}
+                    </Button>
+                    {/* Instagram Publish Button */}
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      disabled={isPublishing || !instagramStatus?.connected}
+                      onClick={() => handlePublishToInstagram(item.id, item.title, item.organizationId)}
+                      className="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white"
+                      leftIcon={<Share2 className="w-3.5 h-3.5" />}
+                    >
+                      {instagramStatus?.connected ? "Post IG" : "Connect IG"}
                     </Button>
                   </div>
                 </Card>
@@ -525,5 +793,13 @@ export default function PublishingCenterPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PublishingCenterPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500 text-sm">Loading publishing center...</div>}>
+      <PublishingCenterContent />
+    </Suspense>
   );
 }

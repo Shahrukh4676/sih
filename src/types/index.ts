@@ -270,10 +270,24 @@ export interface AuditLog {
   ipAddress: string;
   userAgent: string;
   timestamp: string;
-  // Placeholder for future tamper-evident hash chaining / verifiable ledger
   integrityHash: string;
+  prevHash?: string;
+  sequenceNumber?: number;
   details: Record<string, unknown>;
 }
+
+export interface AuditVerificationResult {
+  valid: boolean;
+  totalLogsChecked: number;
+  genesisHash: string;
+  latestHash: string;
+  brokenIndex?: number;
+  brokenLogId?: string;
+  compromiseReason?: string;
+  verifiedAt: string;
+  algorithm: string;
+}
+
 
 export interface SecurityEvent {
   id: string;
@@ -584,7 +598,69 @@ export interface LinkedInOAuthState {
   state: string;
   userId: string;
   organizationId: string;
+  returnUrl?: string;
   createdAt: number;
   expiresAt: number;
   used: boolean;
 }
+
+export type XConnectionStatus =
+  | 'CONNECTED'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'ERROR'
+  | 'NOT_CONNECTED';
+
+export interface XConnection extends BaseResource {
+  xUserId: string;
+  xUsername: string;
+  xName: string;
+  xAvatarUrl?: string;
+  scopes: string[];
+  accessTokenEncrypted: string;
+  refreshTokenEncrypted?: string;
+  expiresAt: string;
+  status: XConnectionStatus;
+  connectedAt: string;
+  lastPublishedAt?: string;
+}
+
+export interface XOAuthState {
+  state: string;
+  userId: string;
+  organizationId: string;
+  returnUrl?: string;
+  createdAt: number;
+  expiresAt: number;
+  used: boolean;
+}
+
+export type InstagramConnectionStatus =
+  | 'CONNECTED'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'ERROR'
+  | 'NOT_CONNECTED';
+
+export interface InstagramConnection extends BaseResource {
+  instagramUserId: string;
+  instagramUsername: string;
+  accountType?: string;
+  profilePictureUrl?: string;
+  accessTokenEncrypted: string;
+  expiresAt: string;
+  status: InstagramConnectionStatus;
+  connectedAt: string;
+  lastPublishedAt?: string;
+}
+
+export interface InstagramOAuthState {
+  state: string;
+  userId: string;
+  organizationId: string;
+  returnUrl?: string;
+  createdAt: number;
+  expiresAt: number;
+  used: boolean;
+}
+

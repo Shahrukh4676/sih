@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (isJsonRequested) {
-      return NextResponse.json({
+      const jsonRes = NextResponse.json({
         success: true,
         connected: true,
         status: "CONNECTED",
@@ -85,24 +85,46 @@ export async function GET(req: NextRequest) {
           email: profile.email,
         },
       });
+      jsonRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      return jsonRes;
     }
 
-    return NextResponse.redirect(
-      new URL("/settings?tab=INTEGRATIONS&connected=true", req.url)
-    );
+    const returnPath = stateData.returnUrl || "/settings?tab=INTEGRATIONS";
+    const targetUrl = new URL(returnPath, req.url);
+    targetUrl.searchParams.set("tab", "INTEGRATIONS");
+    targetUrl.searchParams.set("connected", "true");
+    targetUrl.searchParams.set("organizationId", organizationId);
+    targetUrl.searchParams.set("_t", Date.now().toString());
+
+    const redirectRes = NextResponse.redirect(targetUrl);
+    redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    redirectRes.headers.set("Pragma", "no-cache");
+    redirectRes.headers.set("Expires", "0");
+    return redirectRes;
   } catch (err: unknown) {
     const errorObj = err as Error;
-    console.error("[LinkedIn Callback] Error processing callback:", errorObj);
+    // Log with credentials/tokens redacted
+    const safeErrorMsg = (errorObj?.message || "Unknown error")
+      .replace(/client_secret=[^&\s]+/gi, "client_secret=[REDACTED]")
+      .replace(/code=[^&\s]+/gi, "code=[REDACTED]")
+      .replace(/Bearer\s+[A-Za-z0-9-_.]+/gi, "Bearer [REDACTED]");
+
+    console.error("[LinkedIn Callback] Error processing callback:", safeErrorMsg);
 
     if (isJsonRequested) {
-      return NextResponse.json(
-        { success: false, error: errorObj?.message || "Internal server error during LinkedIn OAuth" },
+      const jsonErr = NextResponse.json(
+        { success: false, error: safeErrorMsg },
         { status: 500 }
       );
+      jsonErr.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      return jsonErr;
     }
 
-    return NextResponse.redirect(
-      new URL(`/settings?tab=INTEGRATIONS&error=${encodeURIComponent(errorObj?.message || "OAuth Failed")}`, req.url)
-    );
+    const errUrl = new URL("/settings?tab=INTEGRATIONS", req.url);
+    errUrl.searchParams.set("error", safeErrorMsg);
+    errUrl.searchParams.set("_t", Date.now().toString());
+    const errRedirect = NextResponse.redirect(errUrl);
+    errRedirect.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return errRedirect;
   }
 }

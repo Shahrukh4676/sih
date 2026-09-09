@@ -13,16 +13,20 @@ import { buildTransformationPrompt } from "./prompts/transformation.prompts";
 export class OllamaProvider implements AIProvider {
   public readonly name = "ollama";
 
+  private customBaseUrl?: string;
+  private customModel?: string;
+
   private get baseUrl(): string {
-    return getSecret("OLLAMA_BASE_URL", "http://localhost:11434").replace(/\/$/, "");
+    return (this.customBaseUrl || getSecret("OLLAMA_BASE_URL", "http://localhost:11434")).replace(/\/$/, "");
   }
 
   private get model(): string {
-    return getSecret("OLLAMA_MODEL", "llama3.2");
+    return this.customModel || getSecret("OLLAMA_MODEL", "llama3.2");
   }
 
-  constructor() {
-    // Empty constructor prevents build-time environment access
+  constructor(customBaseUrl?: string, customModel?: string) {
+    this.customBaseUrl = customBaseUrl;
+    this.customModel = customModel;
   }
 
   public async healthCheck(): Promise<ProviderHealth> {

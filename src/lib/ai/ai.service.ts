@@ -6,7 +6,6 @@
 // Enforces ₹0 budget policy. Never logs secrets or API credentials.
 // ==============================================================================
 
-import "server-only";
 import { getSecret } from "@/lib/server-env";
 import {
   AIProvider,
@@ -48,25 +47,40 @@ class AIServiceRegistry {
   }
 
   /**
+   * Resolves active provider for a specific organization with BYOK/Ollama support
+   */
+  public async getActiveProviderForOrg(organizationId?: string): Promise<AIProvider> {
+    if (organizationId) {
+      try {
+        const { resolveAIProviderForOrg } = await import("../services/ai-providers.service");
+        const { provider } = await resolveAIProviderForOrg(organizationId);
+        return provider;
+      } catch (err) {
+        console.warn("[AIService] Error resolving org provider, using default:", err);
+      }
+    }
+    return this.getActiveProvider();
+  }
+
+  /**
    * Health check returning provider status without exposing API keys
    */
-  public async getStatus(): Promise<{
+  public async getStatus(organizationId?: string): Promise<{
     configuredProvider: string;
     active: ProviderHealth;
     fallbackAvailable: boolean;
   }> {
-    const configured = getSecret("AI_PROVIDER", "gemini").toLowerCase();
-    const primary = this.getActiveProvider();
+    const primary = await this.getActiveProviderForOrg(organizationId);
     const health = await primary.healthCheck();
 
     let fallbackAvailable = false;
-    if (configured === "gemini") {
+    if (primary.name === "gemini") {
       const ollamaHealth = await this.ollama.healthCheck();
       fallbackAvailable = ollamaHealth.available;
     }
 
     return {
-      configuredProvider: configured,
+      configuredProvider: primary.name,
       active: health,
       fallbackAvailable
     };
@@ -77,9 +91,11 @@ class AIServiceRegistry {
    */
   public async analyzeSource(
     rawText: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    organizationId?: string
   ): Promise<StructuredSourceIntelligence> {
-    const primary = this.getActiveProvider();
+    const orgId = organizationId || (metadata?.organizationId as string) || undefined;
+    const primary = await this.getActiveProviderForOrg(orgId);
 
     try {
       return await primary.analyzeSource(rawText, metadata);
@@ -99,7 +115,6 @@ class AIServiceRegistry {
       }
 
       // If neither is connected or configured, generate deterministic grounded intelligence
-      // to keep demo flow functional without crashing or requiring paid subscriptions
       return this.generateDeterministicFallbackAnalysis(rawText);
     }
   }
@@ -109,9 +124,10 @@ class AIServiceRegistry {
    */
   public async transformContent(
     sourceAnalysis: StructuredSourceIntelligence,
-    options: TransformationOptions
+    options: TransformationOptions,
+    organizationId?: string
   ): Promise<TransformationResult> {
-    const primary = this.getActiveProvider();
+    const primary = await this.getActiveProviderForOrg(organizationId);
 
     try {
       return await primary.transformContent(sourceAnalysis, options);
@@ -139,9 +155,10 @@ class AIServiceRegistry {
    */
   public async regenerateContent(
     sourceAnalysis: StructuredSourceIntelligence,
-    options: TransformationOptions
+    options: TransformationOptions,
+    organizationId?: string
   ): Promise<TransformationResult> {
-    return this.transformContent(sourceAnalysis, options);
+    return this.transformContent(sourceAnalysis, options, organizationId);
   }
 
   /**
@@ -336,3 +353,5 @@ export const AIService: AIServiceRegistry = new Proxy({} as AIServiceRegistry, {
     return typeof val === "function" ? val.bind(instance) : val;
   },
 });
+
+export const aiService = AIService;

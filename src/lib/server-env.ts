@@ -40,6 +40,15 @@ export const SERVER_KEYS = {
   AI_PROVIDER: ["AI", "PROVIDER"].join("_"),
   OLLAMA_BASE_URL: ["OLLAMA", "BASE", "URL"].join("_"),
   OLLAMA_MODEL: ["OLLAMA", "MODEL"].join("_"),
+  X_CLIENT_ID: ["X", "CLIENT", "ID"].join("_"),
+  X_CLIENT_SECRET: ["X", "CLIENT", "SECRET"].join("_"),
+  X_REDIRECT_URI: ["X", "REDIRECT", "URI"].join("_"),
+  INSTAGRAM_CLIENT_ID: ["INSTAGRAM", "CLIENT", "ID"].join("_"),
+  INSTAGRAM_CLIENT_SECRET: ["INSTAGRAM", "CLIENT", "SECRET"].join("_"),
+  INSTAGRAM_REDIRECT_URI: ["INSTAGRAM", "REDIRECT", "URI"].join("_"),
+  META_APP_ID: ["META", "APP", "ID"].join("_"),
+  META_APP_SECRET: ["META", "APP", "SECRET"].join("_"),
+  NEXT_PUBLIC_APP_URL: ["NEXT", "PUBLIC", "APP", "URL"].join("_"),
   NODE_ENV: "NODE_ENV",
 } as const;
 

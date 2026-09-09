@@ -20,13 +20,17 @@ export async function GET(req: NextRequest) {
     const connection = await LinkedInService.getLinkedInConnection(organizationId, userId);
 
     if (!connection || connection.status !== "CONNECTED") {
-      return NextResponse.json({
+      const notConnectedRes = NextResponse.json({
         connected: false,
         status: connection ? connection.status : "NOT_CONNECTED",
       });
+      notConnectedRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      notConnectedRes.headers.set("Pragma", "no-cache");
+      notConnectedRes.headers.set("Expires", "0");
+      return notConnectedRes;
     }
 
-    return NextResponse.json({
+    const connectedRes = NextResponse.json({
       connected: true,
       status: "CONNECTED",
       member: {
@@ -41,12 +45,18 @@ export async function GET(req: NextRequest) {
       lastPublishedAt: connection.lastPublishedAt,
       expiresAt: connection.expiresAt,
     });
+    connectedRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    connectedRes.headers.set("Pragma", "no-cache");
+    connectedRes.headers.set("Expires", "0");
+    return connectedRes;
   } catch (err: unknown) {
     const errorObj = err as Error;
     console.error("[LinkedIn Status] Error checking status:", errorObj);
-    return NextResponse.json(
+    const errRes = NextResponse.json(
       { connected: false, status: "ERROR", error: errorObj?.message },
       { status: 500 }
     );
+    errRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return errRes;
   }
 }

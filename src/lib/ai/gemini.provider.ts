@@ -14,16 +14,20 @@ export class GeminiProvider implements AIProvider {
   public readonly name = "gemini";
   private readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
+  private customApiKey?: string;
+  private customModel?: string;
+
   private get apiKey(): string {
-    return getSecret("GEMINI_API_KEY");
+    return this.customApiKey || getSecret("GEMINI_API_KEY");
   }
 
   private get model(): string {
-    return getSecret("GEMINI_MODEL", "gemini-1.5-flash");
+    return this.customModel || getSecret("GEMINI_MODEL", "gemini-1.5-flash");
   }
 
-  constructor() {
-    // Empty constructor ensures zero environment reads or evaluations occur at module load / build time
+  constructor(customApiKey?: string, customModel?: string) {
+    this.customApiKey = customApiKey;
+    this.customModel = customModel;
   }
 
   public async healthCheck(): Promise<ProviderHealth> {

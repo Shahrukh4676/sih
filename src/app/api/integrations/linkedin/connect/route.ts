@@ -20,9 +20,13 @@ export async function GET(req: NextRequest) {
       "org_primary";
 
     const customRedirectUri = searchParams.get("redirect_uri") || undefined;
+    const returnUrl =
+      searchParams.get("returnUrl") ||
+      searchParams.get("redirect") ||
+      "/settings?tab=INTEGRATIONS";
 
-    // Generate secure CSRF single-use state
-    const state = await LinkedInService.createOAuthState(userId, organizationId);
+    // Generate secure CSRF single-use state containing tenant and return destination
+    const state = await LinkedInService.createOAuthState(userId, organizationId, returnUrl);
     const authUrl = client.getAuthorizationUrl(state, customRedirectUri);
 
     // Support JSON response for API/testing clients
@@ -31,15 +35,20 @@ export async function GET(req: NextRequest) {
       req.headers.get("accept")?.includes("application/json");
 
     if (isJsonRequested) {
-      return NextResponse.json({
+      const jsonRes = NextResponse.json({
         success: true,
         url: authUrl,
+        authUrl: authUrl,
         state,
         redirectUri: customRedirectUri || client.getRedirectUri(),
       });
+      jsonRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      return jsonRes;
     }
 
-    return NextResponse.redirect(authUrl, { status: 302 });
+    const redirectRes = NextResponse.redirect(authUrl, { status: 302 });
+    redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return redirectRes;
   } catch (err: unknown) {
     const errorObj = err as Error;
     console.error("[LinkedIn Connect] Error initiating OAuth:", errorObj);

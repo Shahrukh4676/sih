@@ -39,17 +39,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       status: "DISCONNECTED",
       message: "LinkedIn connection successfully revoked and stored tokens purged.",
     });
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return res;
   } catch (err: unknown) {
     const errorObj = err as Error;
     console.error("[LinkedIn Disconnect] Error revoking connection:", errorObj);
-    return NextResponse.json(
+    const errRes = NextResponse.json(
       { success: false, error: errorObj?.message || "Internal error during disconnect" },
       { status: 500 }
     );
+    errRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    return errRes;
   }
 }

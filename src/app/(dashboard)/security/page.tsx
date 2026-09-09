@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Shield,
   ShieldCheck,
@@ -19,8 +19,11 @@ import {
   Laptop,
   Check,
   XCircle,
+  RefreshCw,
+  Link2,
 } from "lucide-react";
-import { AuditLog, SecurityEvent } from "@/types";
+import { AuditLog, SecurityEvent, AuditVerificationResult } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
@@ -29,12 +32,56 @@ import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function SecurityCenterPage() {
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+
   const [activeTab, setActiveTab] = useState<
     "CAPABILITIES" | "AUDIT" | "INCIDENTS" | "RBAC" | "SESSIONS"
   >("CAPABILITIES");
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [securityEvents] = useState<SecurityEvent[]>([]);
-  const [auditLogs] = useState<AuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<AuditVerificationResult | null>(null);
+  const [verifyingChain, setVerifyingChain] = useState(false);
+
+  const fetchAuditLogs = useCallback(async () => {
+    try {
+      setAuditLoading(true);
+      const res = await fetch(`/api/audit?organizationId=${encodeURIComponent(organizationId)}&limit=50`);
+      const data = await res.json();
+      if (data.success && data.logs) {
+        setAuditLogs(data.logs);
+      }
+    } catch (err) {
+      console.error("Error fetching audit logs:", err);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [organizationId]);
+
+  const handleVerifyChain = useCallback(async () => {
+    try {
+      setVerifyingChain(true);
+      const res = await fetch(`/api/audit/verify?organizationId=${encodeURIComponent(organizationId)}`);
+      const data = await res.json();
+      if (data.success) {
+        setVerificationResult(data);
+      }
+    } catch (err) {
+      console.error("Error verifying audit chain:", err);
+    } finally {
+      setVerifyingChain(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (activeTab === "AUDIT") {
+      fetchAuditLogs();
+      handleVerifyChain();
+    }
+  }, [activeTab, fetchAuditLogs, handleVerifyChain]);
+
 
   const activeSessions = [
     {
@@ -297,70 +344,152 @@ export default function SecurityCenterPage() {
 
       {/* TAB 3: AUDIT LOGS */}
       {activeTab === "AUDIT" && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Cryptographic Audit Log
-            </CardTitle>
-            <p className="text-xs text-slate-500">
-              Immutable SHA-256 chained transaction records
-            </p>
-          </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/60 text-slate-500 font-medium">
-                  <th className="px-5 py-3">Timestamp</th>
-                  <th className="px-4 py-3">Actor</th>
-                  <th className="px-4 py-3">Action</th>
-                  <th className="px-4 py-3">Severity</th>
-                  <th className="px-4 py-3">Integrity Hash</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {auditLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
-                      No cryptographic audit records yet. All platform actions are recorded automatically.
-                    </td>
-                  </tr>
+        <div className="space-y-4">
+          {/* Cryptographic Chain Integrity Banner */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Link2 className="w-4 h-4" />
+                </div>
+                <span className="font-bold text-slate-900 text-sm">
+                  SHA-256 Cryptographic Chain Ledger
+                </span>
+                {verificationResult ? (
+                  verificationResult.valid ? (
+                    <Badge variant="verified" size="sm" dot>
+                      Chain Intact ({verificationResult.totalLogsChecked} Blocks)
+                    </Badge>
+                  ) : (
+                    <Badge variant="danger" size="sm" dot>
+                      Tampering Detected (Block #{verificationResult.brokenIndex})
+                    </Badge>
+                  )
                 ) : (
-                  auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition">
-                    <td className="px-5 py-3 whitespace-nowrap text-slate-600">
-                      {formatDate(log.timestamp)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-semibold text-slate-900">{log.userEmail}</div>
-                      <div className="text-[10px] text-blue-600 font-mono">{log.userRole}</div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {log.action.replace(/_/g, " ")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          log.severity === "CRITICAL"
-                            ? "danger"
-                            : log.severity === "WARNING"
-                            ? "warning"
-                            : "neutral"
-                        }
-                        size="sm"
-                      >
-                        {log.severity}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[10px] text-slate-400">
-                      {log.integrityHash.substring(0, 24)}...
-                    </td>
-                  </tr>
-                ))
+                  <Badge variant="neutral" size="sm">
+                    Unverified
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Each transaction incorporates the SHA-256 signature of the previous record. Any unauthorized data alteration breaks chain sequence validity.
+              </p>
+              {verificationResult && (
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-slate-500">
+                  <span>Algorithm: {verificationResult.algorithm}</span>
+                  <span>•</span>
+                  <span>Root: {verificationResult.genesisHash.substring(0, 16)}...</span>
+                  <span>•</span>
+                  <span>Tail: {verificationResult.latestHash.substring(0, 16)}...</span>
+                </div>
               )}
-              </tbody>
-            </table>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchAuditLogs}
+                disabled={auditLoading}
+                title="Refresh audit log feed"
+                leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${auditLoading ? "animate-spin" : ""}`} />}
+              >
+                Refresh
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleVerifyChain}
+                disabled={verifyingChain}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                leftIcon={<ShieldCheck className={`w-3.5 h-3.5 ${verifyingChain ? "animate-spin" : ""}`} />}
+              >
+                {verifyingChain ? "Verifying..." : "Verify Chain Integrity"}
+              </Button>
+            </div>
           </div>
-        </Card>
+
+          {/* Audit Logs Table */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold">
+                    Tamper-Evident Transaction Ledger
+                  </CardTitle>
+                  <p className="text-xs text-slate-500">
+                    Chronologically chained immutable records
+                  </p>
+                </div>
+                <span className="text-xs text-slate-400 font-medium">
+                  {auditLogs.length} total events recorded
+                </span>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 text-slate-500 font-medium">
+                    <th className="px-5 py-3">Block #</th>
+                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">Actor</th>
+                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Severity</th>
+                    <th className="px-4 py-3">Previous Hash</th>
+                    <th className="px-4 py-3">Integrity Hash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-center text-slate-400">
+                        No cryptographic audit records yet. All platform actions are recorded automatically.
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                        <td className="px-5 py-3 font-mono font-bold text-slate-700">
+                          #{log.sequenceNumber || "—"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                          {formatDate(log.timestamp)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-semibold text-slate-900">{log.userEmail}</div>
+                          <div className="text-[10px] text-blue-600 font-mono">{log.userRole}</div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-800">
+                          {log.action.replace(/_/g, " ")}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={
+                              log.severity === "CRITICAL"
+                                ? "danger"
+                                : log.severity === "WARNING"
+                                ? "warning"
+                                : "neutral"
+                            }
+                            size="sm"
+                          >
+                            {log.severity}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[10px] text-slate-400">
+                          {log.prevHash ? `${log.prevHash.substring(0, 12)}...` : "GENESIS"}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[10px] text-emerald-700 font-semibold">
+                          {log.integrityHash ? `${log.integrityHash.substring(0, 14)}...` : "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* TAB 4: RBAC */}
