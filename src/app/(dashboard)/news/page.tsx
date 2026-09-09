@@ -605,7 +605,7 @@ export default function NewsIntelligencePage() {
 
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
                 <div className="font-semibold text-slate-800">{transformSuccess.title}</div>
-                <div className="text-slate-500">Format: {transformSuccess.format.replace("_", " ")}</div>
+                <div className="text-slate-500">Format: {(transformSuccess.format || "NEWS SYNTHESIS").replace(/_/g, " ")}</div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

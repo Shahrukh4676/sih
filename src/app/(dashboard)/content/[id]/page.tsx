@@ -135,7 +135,7 @@ export default function ContentDetailPage() {
             </Link>
             <span className="text-slate-300">•</span>
             <Badge variant="neutral" size="sm">
-              {content.outputFormat.replace(/_/g, " ")}
+              {(content.outputFormat || "CONTENT").replace(/_/g, " ")}
             </Badge>
             <Badge
               variant={
@@ -148,7 +148,7 @@ export default function ContentDetailPage() {
               size="sm"
               dot
             >
-              {content.status.replace(/_/g, " ")}
+              {(content.status || "DRAFT").replace(/_/g, " ")}
             </Badge>
           </div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">

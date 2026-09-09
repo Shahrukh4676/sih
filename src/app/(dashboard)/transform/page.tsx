@@ -822,7 +822,7 @@ export default function TransformPage() {
                       {generatedTitle || "Generated Communication Artefact"}
                     </CardTitle>
                     <p className="text-xs text-slate-400">
-                      Format: {selectedFormat.replace(/_/g, " ")} • Version v{activeVersionNumber}
+                      Format: {(selectedFormat || "LinkedIn Post").replace(/_/g, " ")} • Version v{activeVersionNumber}
                     </p>
                   </div>
 

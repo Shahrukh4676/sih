@@ -654,7 +654,7 @@ export class NewsService {
 
     const version1 = {
       versionNumber: 1,
-      title: transformationResult.title || `${targetFormat.replace("_", " ")}: ${newsItem.title}`,
+      title: transformationResult.title || `${(targetFormat || "ARTEFACT").replace(/_/g, " ")}: ${newsItem.title}`,
       body: transformationResult.content,
       content: transformationResult.content,
       providerUsed: `${transformationResult.providerUsed}:${transformationResult.modelUsed}`,
@@ -672,7 +672,7 @@ export class NewsService {
       organizationId,
       userId,
       sourceId: source.id,
-      title: transformationResult.title || `${targetFormat.replace("_", " ")}: ${newsItem.title}`,
+      title: transformationResult.title || `${(targetFormat || "ARTEFACT").replace(/_/g, " ")}: ${newsItem.title}`,
       content: transformationResult.content,
       outputFormat: targetFormat as any,
       outputType: targetFormat as any,

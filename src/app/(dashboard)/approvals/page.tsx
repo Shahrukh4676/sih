@@ -207,7 +207,7 @@ export default function ApprovalCenterPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <Badge variant="neutral" size="sm">
-                      {item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content"}
+                      {(item.outputFormat || "Content").replace(/_/g, " ")}
                     </Badge>
                     <Badge
                       variant={
@@ -216,7 +216,7 @@ export default function ApprovalCenterPage() {
                       size="sm"
                       dot
                     >
-                      {item.status.replace(/_/g, " ")}
+                      {(item.status || "PENDING").replace(/_/g, " ")}
                     </Badge>
                   </div>
                   <h4 className="text-xs font-bold text-slate-900 line-clamp-2">
@@ -241,7 +241,7 @@ export default function ApprovalCenterPage() {
                       Artefact Inspection &amp; Signoff
                     </CardTitle>
                     <p className="text-xs text-slate-500">
-                      Format: {activeItem.outputFormat ? activeItem.outputFormat.replace(/_/g, " ") : "Content"} • Target: {activeItem.targetAudience}
+                      Format: {(activeItem.outputFormat || "Content").replace(/_/g, " ")} • Target: {activeItem.targetAudience}
                     </p>
                   </div>
                   <Badge variant="verified" size="sm" dot>

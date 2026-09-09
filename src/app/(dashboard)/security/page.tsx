@@ -313,7 +313,7 @@ export default function SecurityCenterPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900">
-                          {ev.eventType.replace(/_/g, " ")}
+                          {(ev.eventType || "SECURITY ALERT").replace(/_/g, " ")}
                         </span>
                         <Badge variant="danger" size="sm">
                           {ev.severity}
@@ -460,7 +460,7 @@ export default function SecurityCenterPage() {
                           <div className="text-[10px] text-blue-600 font-mono">{log.userRole}</div>
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-800">
-                          {log.action.replace(/_/g, " ")}
+                          {(log.action || "AUDIT").replace(/_/g, " ")}
                         </td>
                         <td className="px-4 py-3">
                           <Badge

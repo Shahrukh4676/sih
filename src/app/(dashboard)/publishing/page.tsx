@@ -664,7 +664,7 @@ function PublishingCenterContent() {
                         Approved
                       </Badge>
                       <span className="text-xs text-slate-400">
-                        Format: {item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "LinkedIn Post"}
+                        Format: {(item.outputFormat || "LinkedIn Post").replace(/_/g, " ")}
                       </span>
                       <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
                         isOverLimit ? "bg-rose-50 text-rose-700 font-bold" : "bg-slate-100 text-slate-600"

@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     { className, label, error, helperText, leftIcon, rightIcon, id, ...props },
     ref
   ) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const inputId = id || (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     return (
       <div className="w-full flex flex-col gap-1.5 text-left">
@@ -74,7 +74,7 @@ export interface TextareaProps
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, helperText, id, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const inputId = id || (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     return (
       <div className="w-full flex flex-col gap-1.5 text-left">
@@ -123,7 +123,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     { className, label, error, helperText, options, children, id, ...props },
     ref
   ) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const inputId = id || (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     return (
       <div className="w-full flex flex-col gap-1.5 text-left">

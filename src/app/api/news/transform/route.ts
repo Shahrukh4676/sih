@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       content: result.content,
       sourceId: result.sourceId,
       newsItem: result.newsItem,
-      message: `Successfully synthesized news into ${targetFormat.replace("_", " ")}`,
+      message: `Successfully synthesized news into ${(targetFormat || "artefact").replace(/_/g, " ")}`,
     });
   } catch (error: any) {
     console.error("[API News Transform] Error:", error);

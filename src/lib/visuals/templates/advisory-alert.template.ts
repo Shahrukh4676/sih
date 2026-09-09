@@ -16,7 +16,7 @@ export function renderAdvisoryAlert(brief: VisualBrief): string {
   const footerText = escapeXml(brief.brand?.footerText || "Security Advisory • Automated Intelligence Transformation");
 
   // CVSS or Severity Score extraction
-  const cvssStat = brief.statistics.find((s) => s.label.toLowerCase().includes("cvss")) || brief.statistics[0];
+  const cvssStat = (brief.statistics || []).find((s) => (s?.label || "").toLowerCase().includes("cvss")) || brief.statistics?.[0];
   const severityValue = cvssStat ? cvssStat.value : "CRITICAL";
 
   // Actionable mitigation checklist from keyFacts

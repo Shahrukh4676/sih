@@ -329,7 +329,7 @@ export class VisualIntelligenceService {
         : "";
     const factsDesc = params.keyFacts.length > 0 ? ` Key points include: ${params.keyFacts.join("; ")}.` : "";
 
-    return `${params.visualType.replace("_", " ")} created by ${params.orgName}: "${params.headline}". ${
+    return `${(params.visualType || "INFOGRAPHIC").replace(/_/g, " ")} created by ${params.orgName}: "${params.headline}". ${
       params.subheadline
     }.${statsDesc}${factsDesc}`;
   }

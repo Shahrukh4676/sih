@@ -635,7 +635,7 @@ function SettingsContent() {
                       </p>
                     </div>
                     <Badge variant={aiProviderMode === "LOCAL_OLLAMA" ? "warning" : "verified"} size="sm">
-                      {aiProviderMode.replace(/_/g, " ")}
+                      {(aiProviderMode || "NEXUS DEFAULT").replace(/_/g, " ")}
                     </Badge>
                   </div>
                 </CardHeader>

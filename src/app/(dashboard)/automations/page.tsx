@@ -491,7 +491,7 @@ export default function AutomationsPage() {
                       {/* Visual Pipeline Flow */}
                       <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
                         <span className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-800 font-medium">
-                          Trigger: {rule.trigger.type.replace(/_/g, " ")}
+                          Trigger: {(rule.trigger?.type || "MANUAL").replace(/_/g, " ")}
                         </span>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
 
@@ -505,7 +505,7 @@ export default function AutomationsPage() {
                         )}
 
                         <span className="px-2 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-800 font-medium">
-                          Action: {rule.aiAction.actionType.replace(/_/g, " ")}
+                          Action: {(rule.aiAction?.actionType || "EXECUTE").replace(/_/g, " ")}
                         </span>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
 

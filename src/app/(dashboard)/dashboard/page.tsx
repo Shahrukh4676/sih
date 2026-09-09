@@ -253,7 +253,7 @@ export default function DashboardPage() {
                     </tr>
                   ) : (
                     contents.slice(0, 5).map((item) => {
-                      const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+                      const formatLabel = (item.outputFormat || "Content").replace(/_/g, " ");
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition">
                           <td className="px-5 py-3 font-medium text-slate-900 max-w-xs truncate">
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                               size="sm"
                               dot
                             >
-                              {item.status.replace(/_/g, " ")}
+                              {(item.status || "DRAFT").replace(/_/g, " ")}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
@@ -338,7 +338,7 @@ export default function DashboardPage() {
                           {item.title}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
-                          <span>Status: {item.status.replace(/_/g, " ")}</span>
+                          <span>Status: {(item.status || "PENDING").replace(/_/g, " ")}</span>
                           <span>•</span>
                           <span className="text-amber-700 font-medium">
                             Strict Review Policy

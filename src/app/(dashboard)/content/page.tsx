@@ -234,7 +234,7 @@ export default function ContentLibraryPage() {
                 {filteredContents.map((item) => {
                   const bodyText = item.currentVersion?.body || item.content || "";
                   const versionNum = item.currentVersion?.versionNumber || item.version || 1;
-                  const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+                  const formatLabel = (item.outputFormat || "Content").replace(/_/g, " ");
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80 transition">
@@ -266,7 +266,7 @@ export default function ContentLibraryPage() {
                           size="sm"
                           dot
                         >
-                          {item.status.replace(/_/g, " ")}
+                          {(item.status || "DRAFT").replace(/_/g, " ")}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
@@ -314,7 +314,7 @@ export default function ContentLibraryPage() {
           {filteredContents.map((item) => {
             const bodyText = item.currentVersion?.body || item.content || "";
             const versionNum = item.currentVersion?.versionNumber || item.version || 1;
-            const formatLabel = item.outputFormat ? item.outputFormat.replace(/_/g, " ") : "Content";
+            const formatLabel = (item.outputFormat || "Content").replace(/_/g, " ");
 
             return (
               <Card key={item.id} hoverable className="flex flex-col justify-between">
@@ -334,7 +334,7 @@ export default function ContentLibraryPage() {
                       size="sm"
                       dot
                     >
-                      {item.status.replace(/_/g, " ")}
+                      {(item.status || "DRAFT").replace(/_/g, " ")}
                     </Badge>
                   </div>
                   <CardTitle className="text-sm font-semibold line-clamp-2">
