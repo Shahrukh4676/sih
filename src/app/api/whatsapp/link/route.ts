@@ -11,7 +11,8 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { organizationId = "org_nexus_default", userId = "usr_current" } = body;
+    const headerOrg = req.headers.get("x-organization-id");
+    const { organizationId = headerOrg || "org_primary", userId = "usr_current" } = body;
 
     const result = await defaultWhatsAppUserLinkService.createLinkingCode(organizationId, userId);
 
@@ -39,7 +40,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("organizationId") || "org_nexus_default";
+    const orgId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
 
     const connections = await defaultWhatsAppUserLinkService.listConnectionsByOrg(orgId);
 

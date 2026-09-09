@@ -7,7 +7,10 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const organizationId = searchParams.get("organizationId") || "org_primary";
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
     const category = searchParams.get("category") || undefined;
     const searchQuery = searchParams.get("search") || searchParams.get("q") || undefined;
     const forceRefresh = searchParams.get("refresh") === "true";
@@ -38,7 +41,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { organizationId = "org_primary", customFeedUrl, topics } = body;
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      body.organizationId ||
+      "org_primary";
+    const { customFeedUrl, topics } = body;
 
     if (customFeedUrl) {
       const prefs = await NewsService.getPreferences(organizationId);

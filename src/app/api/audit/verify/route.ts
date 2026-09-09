@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
     const res = NextResponse.json({
       success: true,
+      chainValid: result.valid,
       ...result,
     });
     res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");

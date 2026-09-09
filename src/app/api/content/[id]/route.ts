@@ -12,7 +12,10 @@ export async function GET(
     const { id } = await params;
     const content = await getContentById(id);
     if (!content) {
-      return NextResponse.json({ error: `Content not found: ${id}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Content not found: ${id}` },
+        { status: 404 }
+      );
     }
     return NextResponse.json({
       success: true,
@@ -21,6 +24,7 @@ export async function GET(
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error retrieving content";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Content API] GET [id] error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

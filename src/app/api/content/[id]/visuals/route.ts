@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContentById } from "@/lib/services/content.service";
 import { VisualsService } from "@/lib/services/visuals.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,7 +18,10 @@ export async function GET(
     const content = await getContentById(id);
 
     if (!content) {
-      return NextResponse.json({ error: `Content not found: ${id}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Content not found: ${id}` },
+        { status: 404 }
+      );
     }
 
     const visuals = await VisualsService.getVisualsByContentId(id);
@@ -28,6 +34,7 @@ export async function GET(
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error retrieving visuals for content";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Content API] GET [id]/visuals error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

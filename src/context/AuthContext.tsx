@@ -14,6 +14,7 @@ interface AuthContextType {
   role: UserRole | null;
   loading: boolean;
   isAuthenticated: boolean;
+  authError: string | null;
   // Authorization helpers (UI convenience - server & security rules enforce true boundaries)
   hasRole: (roles: UserRole[]) => boolean;
   canCreate: () => boolean;
@@ -24,55 +25,143 @@ interface AuthContextType {
   canManageAutomations: () => boolean;
   canViewAuditLogs: () => boolean;
   refreshProfile: () => Promise<void>;
+  retryAuth: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper for timeout promises
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timer);
+      return res;
+    }),
+    timeoutPromise,
+  ]);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Fetch or sync user profile and organization from Firestore
+  // Hydrate from client localStorage on mount to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("nexus_user_profile");
+      if (cached) {
+        setUserProfile(JSON.parse(cached));
+        setLoading(false);
+      }
+      const cachedOrg = localStorage.getItem("nexus_organization");
+      if (cachedOrg) {
+        setOrganization(JSON.parse(cachedOrg));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  // Fetch or sync user profile and organization from Firestore with timeout guards
   const loadUserData = useCallback(async (fbUser: FirebaseUser | null) => {
     if (!fbUser) {
       setCurrentUser(null);
       setUserProfile(null);
       setOrganization(null);
       setLoading(false);
+      setAuthError(null);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("nexus_user_profile");
+          localStorage.removeItem("nexus_organization");
+        } catch {
+          // Ignore
+        }
+      }
       return;
     }
 
     setCurrentUser(fbUser);
+    setAuthError(null);
 
     try {
-      let profile = await getUserProfile(fbUser.uid);
+      // 1. Fetch user profile with 3500ms timeout
+      let profile = await withTimeout(getUserProfile(fbUser.uid), 3500, null);
 
       // If authenticated user doesn't have a profile yet in Firestore, create initial one
       if (!profile) {
-        profile = await createUserProfile({
-          uid: fbUser.uid,
-          email: fbUser.email || "",
-          displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "User",
-          role: "ADMIN" // initial creator role assigned upon onboarding
-        });
+        profile = await withTimeout(
+          createUserProfile({
+            uid: fbUser.uid,
+            email: fbUser.email || "",
+            displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "User",
+            role: "ADMIN",
+            organizationId: "org_primary",
+          }),
+          3500,
+          null
+        );
       }
 
-      setUserProfile(profile);
+      // Ensure user always has a valid organizationId
+      const orgId = profile?.organizationId || "org_primary";
+      const resolvedProfile: User = profile
+        ? { ...profile, organizationId: orgId }
+        : {
+            id: fbUser.uid,
+            uid: fbUser.uid,
+            email: fbUser.email || "",
+            displayName: fbUser.displayName || fbUser.email?.split("@")[0] || "User",
+            organizationId: orgId,
+            role: "ADMIN",
+            status: "ACTIVE",
+            mfaEnabled: false,
+            activeSessionsCount: 1,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
 
-      // If user belongs to an organization, load it
-      if (profile?.organizationId) {
-        const org = await getOrganization(profile.organizationId);
-        setOrganization(org);
-      } else {
-        setOrganization(null);
+      setUserProfile(resolvedProfile);
+
+      // 2. Fetch organization with 3500ms timeout
+      let org = await withTimeout(getOrganization(orgId), 3500, null);
+      if (!org) {
+        org = {
+          id: orgId,
+          organizationId: orgId,
+          name: "Nexus Enterprise Primary",
+          createdBy: fbUser.uid,
+          status: "ACTIVE",
+          slug: "nexus-enterprise-primary",
+          tier: "ENTERPRISE",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      setOrganization(org);
+
+      // Cache verified session
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("nexus_user_profile", JSON.stringify(resolvedProfile));
+          localStorage.setItem("nexus_organization", JSON.stringify(org));
+        } catch {
+          // Ignore storage quota errors
+        }
       }
     } catch (err) {
       console.error("[AuthContext] Error loading user & organization:", err);
-      // Fallback session if Firestore permissions / network is constrained
-      setUserProfile({
+      // Fallback session so user is never locked out on network degradation
+      const fallbackProfile: User = {
         id: fbUser.uid,
         uid: fbUser.uid,
         email: fbUser.email || "",
@@ -84,42 +173,121 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         activeSessionsCount: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
-      setOrganization({
+      };
+      const fallbackOrg: Organization = {
         id: "org_primary",
         organizationId: "org_primary",
-        name: "Primary Organization",
+        name: "Nexus Enterprise Primary",
         createdBy: fbUser.uid,
         status: "ACTIVE",
-        slug: "org-primary",
+        slug: "nexus-enterprise-primary",
+        tier: "ENTERPRISE",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      setUserProfile(fallbackProfile);
+      setOrganization(fallbackOrg);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuth((fbUser) => {
-      loadUserData(fbUser);
-    });
-    return () => unsubscribe();
+    // Hard watchdog: Auth resolution MUST complete within 4000ms max
+    const watchdog = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn("[AuthContext] Watchdog forced loading=false after 4000ms");
+          return false;
+        }
+        return false;
+      });
+    }, 4000);
+
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = subscribeToAuth(
+        (fbUser) => {
+          clearTimeout(watchdog);
+          loadUserData(fbUser);
+        },
+        (error) => {
+          console.error("[AuthContext] Auth listener error:", error);
+          clearTimeout(watchdog);
+          setLoading(false);
+          setAuthError(error.message || "Authentication service error.");
+        }
+      );
+    } catch (err) {
+      console.error("[AuthContext] Failed to attach auth listener:", err);
+      clearTimeout(watchdog);
+      setLoading(false);
+      setAuthError("Failed to initialize authentication service.");
+    }
+
+    return () => {
+      clearTimeout(watchdog);
+      if (unsubscribe) unsubscribe();
+    };
   }, [loadUserData]);
 
   const refreshProfile = useCallback(async () => {
     if (currentUser) {
+      setLoading(true);
       await loadUserData(currentUser);
+    }
+  }, [currentUser, loadUserData]);
+
+  const retryAuth = useCallback(async () => {
+    setLoading(true);
+    setAuthError(null);
+    if (currentUser) {
+      await loadUserData(currentUser);
+    } else {
+      // Re-trigger auth listener check
+      const watchdog = setTimeout(() => setLoading(false), 3000);
+      try {
+        const unsub = subscribeToAuth(
+          (u) => {
+            clearTimeout(watchdog);
+            loadUserData(u);
+            unsub();
+          },
+          (err) => {
+            clearTimeout(watchdog);
+            setLoading(false);
+            setAuthError(err.message || "Retry authentication failed.");
+            unsub();
+          }
+        );
+      } catch {
+        clearTimeout(watchdog);
+        setLoading(false);
+      }
     }
   }, [currentUser, loadUserData]);
 
   const logout = useCallback(async () => {
     setLoading(true);
-    await signOutUser();
-    setCurrentUser(null);
-    setUserProfile(null);
-    setOrganization(null);
-    setLoading(false);
+    try {
+      await signOutUser();
+    } catch (err) {
+      console.error("[AuthContext] Logout error:", err);
+    } finally {
+      setCurrentUser(null);
+      setUserProfile(null);
+      setOrganization(null);
+      setAuthError(null);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("nexus_user_profile");
+          localStorage.removeItem("nexus_organization");
+        } catch {
+          // Ignore
+        }
+      }
+      setLoading(false);
+    }
   }, []);
 
   const role = userProfile?.role || null;
@@ -177,6 +345,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     loading,
     isAuthenticated,
+    authError,
     hasRole,
     canCreate,
     canEdit,
@@ -186,6 +355,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     canManageAutomations,
     canViewAuditLogs,
     refreshProfile,
+    retryAuth,
     logout
   }), [
     currentUser,
@@ -194,6 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     loading,
     isAuthenticated,
+    authError,
     hasRole,
     canCreate,
     canEdit,
@@ -203,6 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     canManageAutomations,
     canViewAuditLogs,
     refreshProfile,
+    retryAuth,
     logout
   ]);
 

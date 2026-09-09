@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     if (!to || !text) {
       return NextResponse.json(
-        { error: "Missing required fields: 'to' and 'text'" },
+        { success: false, error: "Missing required fields: 'to' and 'text'" },
         { status: 400 }
       );
     }
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const connection = await defaultWhatsAppUserLinkService.getConnectionByPhoneNumber(to);
     if (!connection || connection.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "Recipient phone number is not linked or active in NEXUS AI" },
+        { success: false, error: "Recipient phone number is not linked or active in NEXUS AI" },
         { status: 403 }
       );
     }

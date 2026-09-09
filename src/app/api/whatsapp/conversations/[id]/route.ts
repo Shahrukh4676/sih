@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultWhatsAppConversationManager } from "@/lib/whatsapp/whatsapp-conversation";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 /**
  * GET /api/whatsapp/conversations/[id]
  * Retrieves conversation details by ID
@@ -14,7 +17,7 @@ export async function GET(
     const conversation = await defaultWhatsAppConversationManager.getConversation(id);
 
     if (!conversation) {
-      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
     }
 
     return NextResponse.json({

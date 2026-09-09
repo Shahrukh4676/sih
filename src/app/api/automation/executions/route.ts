@@ -6,7 +6,10 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const orgId = req.nextUrl.searchParams.get("organizationId") || "org_nexus_default";
+    const orgId =
+      req.headers.get("x-organization-id") ||
+      req.nextUrl.searchParams.get("organizationId") ||
+      "org_primary";
     const limitParam = Number(req.nextUrl.searchParams.get("limit")) || 50;
     const events = await AutomationService.getAutomationEventsByOrg(orgId, limitParam);
 

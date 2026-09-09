@@ -93,8 +93,11 @@ export async function signOutUser(): Promise<{ success: boolean; error: string |
 /**
  * Listen to auth state transitions
  */
-export function subscribeToAuth(callback: (user: FirebaseUser | null) => void) {
-  return onAuthStateChanged(auth, callback);
+export function subscribeToAuth(
+  callback: (user: FirebaseUser | null) => void,
+  errorCallback?: (error: Error) => void
+) {
+  return onAuthStateChanged(auth, callback, errorCallback);
 }
 
 /**

@@ -8,7 +8,10 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const n8nClient = getN8nClient();
-    const orgId = req.nextUrl.searchParams.get("organizationId") || "org_nexus_default";
+    const orgId =
+      req.headers.get("x-organization-id") ||
+      req.nextUrl.searchParams.get("organizationId") ||
+      "org_primary";
     const events = await AutomationService.getAutomationEventsByOrg(orgId, 100);
 
     const counts = {
@@ -20,6 +23,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      engine: "n8n-enterprise-orchestrator",
       workflow: {
         id: n8nClient.getWorkflowId(),
         name: n8nClient.getWorkflowName(),

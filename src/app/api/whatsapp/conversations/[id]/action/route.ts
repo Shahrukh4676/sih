@@ -20,7 +20,7 @@ export async function POST(
 
     const conversation = await defaultWhatsAppConversationManager.getConversation(id);
     if (!conversation) {
-      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
     }
 
     if (action === "RESET" || action === "CANCEL") {
@@ -30,7 +30,7 @@ export async function POST(
 
     if (action === "SIMULATE_MESSAGE") {
       if (!text && !buttonReply) {
-        return NextResponse.json({ error: "Missing 'text' or 'buttonReply'" }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Missing 'text' or 'buttonReply'" }, { status: 400 });
       }
 
       const simMessage = {
@@ -58,7 +58,7 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ error: `Unsupported action: ${action}` }, { status: 400 });
+    return NextResponse.json({ success: false, error: `Unsupported action: ${action}` }, { status: 400 });
   } catch (error: any) {
     console.error("[WhatsApp Conversation Action API] Error:", error.message);
     return NextResponse.json(

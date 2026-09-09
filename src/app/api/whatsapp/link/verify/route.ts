@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultWhatsAppUserLinkService } from "@/lib/whatsapp/whatsapp-user-link";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 /**
  * POST /api/whatsapp/link/verify
  * Verifies linking code and binds phone number to organization & user
@@ -12,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     if (!phoneNumber || !code) {
       return NextResponse.json(
-        { error: "Missing required fields: 'phoneNumber' and 'code'" },
+        { success: false, error: "Missing required fields: 'phoneNumber' and 'code'" },
         { status: 400 }
       );
     }

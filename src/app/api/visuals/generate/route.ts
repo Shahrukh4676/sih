@@ -11,37 +11,47 @@ import { StorageService } from "@/lib/services/storage.service";
 import { VisualsService } from "@/lib/services/visuals.service";
 import { VisualType, BrandProfile } from "@/types";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const headerOrg = req.headers.get("x-organization-id");
     const {
       contentId,
       visualType,
       brand,
-      organizationId = "org_default",
+      organizationId = headerOrg || "org_primary",
       userId = "usr_anonymous",
       customInstructions
     } = body;
 
     if (!contentId) {
-      return NextResponse.json({ error: "Missing required field: contentId" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing required field: contentId" },
+        { status: 400 }
+      );
     }
 
     // 1. Retrieve Content
     const content = await getContentById(contentId);
     if (!content) {
-      return NextResponse.json({ error: `Content not found: ${contentId}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Content not found: ${contentId}` },
+        { status: 404 }
+      );
     }
 
     // 2. Multi-tenant boundary verification
-    if (content.organizationId && organizationId !== "org_default" && content.organizationId !== organizationId) {
+    if (content.organizationId && organizationId !== "org_primary" && content.organizationId !== organizationId) {
       return NextResponse.json(
-        { error: "Unauthorized: You do not have access to this organization's content." },
+        { success: false, error: "Unauthorized: You do not have access to this organization's content." },
         { status: 403 }
       );
     }
 
-    const orgId = content.organizationId || organizationId;
+    const orgId = content.organizationId || organizationId || "org_primary";
 
     // 3. Retrieve Source Intelligence for strict grounding
     const source = content.sourceId ? await getSourceById(content.sourceId) : null;
@@ -102,7 +112,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!visualAsset) {
-      return NextResponse.json({ error: "Failed to persist visual asset metadata." }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Failed to persist visual asset metadata." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -117,6 +130,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error generating visual asset";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Visuals API] Generate error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

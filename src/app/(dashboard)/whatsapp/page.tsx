@@ -74,7 +74,7 @@ interface ChatMessage {
 
 export default function WhatsAppCommandCenterPage() {
   const { userProfile, organization } = useAuth();
-  const orgId = organization?.organizationId || "org_nexus_default";
+  const orgId = organization?.organizationId || userProfile?.organizationId || "org_primary";
   const userId = userProfile?.uid || "usr_current";
 
   // State

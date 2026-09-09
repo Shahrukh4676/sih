@@ -7,7 +7,10 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const organizationId = searchParams.get("organizationId") || "org_primary";
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
     const preferences = await NewsService.getPreferences(organizationId);
     return NextResponse.json({ success: true, preferences });
   } catch (error: any) {
@@ -21,7 +24,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { organizationId = "org_primary", subscribedTopics, customFeeds } = body;
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      body.organizationId ||
+      "org_primary";
+    const { subscribedTopics, customFeeds } = body;
 
     if (!Array.isArray(subscribedTopics)) {
       return NextResponse.json(

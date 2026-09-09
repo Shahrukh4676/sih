@@ -7,6 +7,9 @@ import { getSourceById } from "@/lib/services/sources.service";
 import { SecurityEngine } from "@/lib/security/security-engine";
 import { SecurityService } from "@/lib/services/security.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,24 +17,28 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const organizationId = body.organizationId || "org_default";
+    const headerOrg = req.headers.get("x-organization-id");
+    const organizationId = headerOrg || body.organizationId || "org_primary";
     const userId = body.userId || "usr_anonymous";
 
     // 1. Fetch Source
     const source = await getSourceById(id);
     if (!source) {
-      return NextResponse.json({ error: `Source not found: ${id}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Source not found: ${id}` },
+        { status: 404 }
+      );
     }
 
     // 2. Tenant isolation check
-    if (source.organizationId && organizationId !== "org_default" && source.organizationId !== organizationId) {
+    if (source.organizationId && organizationId !== "org_primary" && source.organizationId !== organizationId) {
       return NextResponse.json(
-        { error: "Unauthorized: You do not have access to this organization's source." },
+        { success: false, error: "Unauthorized: You do not have access to this organization's source." },
         { status: 403 }
       );
     }
 
-    const orgId = source.organizationId || organizationId;
+    const orgId = source.organizationId || organizationId || "org_primary";
     const textToScan = source.extractedText || source.rawContent || "";
 
     // 3. Execute Security Screening
@@ -87,6 +94,7 @@ export async function POST(
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error screening source";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Security API] Scan source error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

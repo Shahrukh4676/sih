@@ -8,6 +8,9 @@ import { getSourceById } from "@/lib/services/sources.service";
 import { SecurityEngine } from "@/lib/security/security-engine";
 import { SecurityService } from "@/lib/services/security.service";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,24 +18,28 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const organizationId = body.organizationId || "org_default";
+    const headerOrg = req.headers.get("x-organization-id");
+    const organizationId = headerOrg || body.organizationId || "org_primary";
     const userId = body.userId || "usr_anonymous";
 
     // 1. Fetch Content
     const content = await getContentById(id);
     if (!content) {
-      return NextResponse.json({ error: `Content not found: ${id}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Content not found: ${id}` },
+        { status: 404 }
+      );
     }
 
     // 2. Tenant isolation check
-    if (content.organizationId && organizationId !== "org_default" && content.organizationId !== organizationId) {
+    if (content.organizationId && organizationId !== "org_primary" && content.organizationId !== organizationId) {
       return NextResponse.json(
-        { error: "Unauthorized: You do not have access to this organization's content." },
+        { success: false, error: "Unauthorized: You do not have access to this organization's content." },
         { status: 403 }
       );
     }
 
-    const orgId = content.organizationId || organizationId;
+    const orgId = content.organizationId || organizationId || "org_primary";
     const contentText = content.currentVersion?.body || content.content || "";
 
     // 3. Fetch linked source for grounding check
@@ -90,6 +97,7 @@ export async function POST(
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error screening content";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Security API] Scan content error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

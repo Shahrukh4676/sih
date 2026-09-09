@@ -8,9 +8,10 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const headerOrg = req.headers.get("x-organization-id");
     const {
       newsId,
-      organizationId = "org_primary",
+      organizationId = headerOrg || "org_primary",
       userId = "usr_creator",
       userEmail = "user@nexus.ai",
       targetFormat = "LINKEDIN_POST",

@@ -62,10 +62,15 @@ export async function POST(req: NextRequest) {
     // Ensure source has structured analysis (Cost Control: analyze once if missing)
     let analysis = source.sourceAnalysis;
     if (!analysis) {
-      analysis = await AIService.analyzeSource(textToScreen, {
-        title: source.title,
-        type: source.type
-      });
+      analysis = await AIService.analyzeSource(
+        textToScreen,
+        {
+          title: source.title,
+          type: source.type,
+          organizationId,
+        },
+        organizationId
+      );
       await updateSourceAnalysis(sourceId, analysis, "ANALYZED");
     }
 
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Run Transformation from reusable structured intelligence
-    const result = await AIService.transformContent(analysis, options);
+    const result = await AIService.transformContent(analysis, options, organizationId);
 
     // Basic output validation
     if (!result.content || result.content.trim().length === 0) {

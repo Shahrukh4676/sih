@@ -4,6 +4,9 @@ import { getSourceById, updateSourceAnalysis } from "@/lib/services/sources.serv
 import { AIService } from "@/lib/ai/ai.service";
 import { TransformationOptions, SupportedOutputFormat } from "@/lib/ai/types";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,19 +17,34 @@ export async function POST(
 
     const content = await getContentById(id);
     if (!content) {
-      return NextResponse.json({ error: `Content not found: ${id}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Content not found: ${id}` },
+        { status: 404 }
+      );
     }
+
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      content.organizationId ||
+      "org_primary";
 
     const source = await getSourceById(content.sourceId);
     if (!source) {
-      return NextResponse.json({ error: `Source not found: ${content.sourceId}` }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: `Source not found: ${content.sourceId}` },
+        { status: 404 }
+      );
     }
 
     // Reuse existing structured source intelligence
     let analysis = source.sourceAnalysis;
     if (!analysis) {
       const text = source.extractedText || source.rawContent || "";
-      analysis = await AIService.analyzeSource(text);
+      analysis = await AIService.analyzeSource(
+        text,
+        { title: source.title, type: source.type },
+        organizationId
+      );
       await updateSourceAnalysis(content.sourceId, analysis);
     }
 
@@ -42,8 +60,8 @@ export async function POST(
       brandPreferences: body.brandPreferences || previousConfig.brandPreferences
     };
 
-    // Generate new transformed version
-    const result = await AIService.transformContent(analysis, options);
+    // Generate new transformed version with tenant-isolated AI service
+    const result = await AIService.transformContent(analysis, options, organizationId);
 
     // Append Version N+1 to Firestore (without overwriting previous versions)
     const updatedContent = await appendContentVersion(id, {
@@ -56,18 +74,22 @@ export async function POST(
     });
 
     if (!updatedContent) {
-      return NextResponse.json({ error: "Failed to persist new version." }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Failed to persist new version." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       contentId: id,
-      newVersionNumber: updatedContent.version,
-      content: updatedContent,
-      result
+      newVersion: updatedContent.version,
+      versionHistoryCount: updatedContent.versionHistory?.length || 1,
+      content: updatedContent
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Error regenerating content";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const msg = error instanceof Error ? error.message : "Error regenerating content version";
+    console.error("[Content API] Regenerate error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

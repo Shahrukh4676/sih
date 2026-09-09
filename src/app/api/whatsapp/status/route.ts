@@ -7,13 +7,17 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("organizationId") || "org_nexus_default";
+    const orgId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
 
     const status = await WhatsAppService.getStatus(orgId);
 
     return NextResponse.json({
       success: true,
       data: status,
+      ...status,
     });
   } catch (error: any) {
     console.error("[WhatsApp Status API] Error:", error.message);

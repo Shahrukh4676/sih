@@ -1,14 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractTextFromSource } from "@/lib/extractors/source-extractor";
-import { createSource } from "@/lib/services/sources.service";
+import { createSource, getSourcesByOrg } from "@/lib/services/sources.service";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const organizationId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
+
+    const sources = await getSourcesByOrg(organizationId);
+
+    return NextResponse.json({
+      success: true,
+      sources,
+      count: sources.length,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Error retrieving sources";
+    console.error("[Sources API] GET error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const headerOrg = req.headers.get("x-organization-id");
     const contentType = req.headers.get("content-type") || "";
     let rawText = "";
     let fileName = undefined;
     let mimeType = "text/plain";
-    let organizationId = "org_default";
+    let organizationId = headerOrg || "org_primary";
     let userId = "usr_anonymous";
     let sourceType: any = "TEXT";
 
@@ -17,13 +43,14 @@ export async function POST(req: NextRequest) {
       rawText = body.text || body.content || "";
       fileName = body.fileName;
       mimeType = body.mimeType || "text/plain";
-      organizationId = body.organizationId || organizationId;
+      organizationId = headerOrg || body.organizationId || organizationId;
       userId = body.userId || userId;
       sourceType = body.type || (fileName ? "DOCUMENT" : "TEXT");
     } else if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
-      organizationId = (formData.get("organizationId") as string) || organizationId;
+      organizationId =
+        headerOrg || (formData.get("organizationId") as string) || organizationId;
       userId = (formData.get("userId") as string) || userId;
 
       if (file) {
@@ -41,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     if (!rawText.trim()) {
       return NextResponse.json(
-        { error: "Source content is empty. Provide text or valid document." },
+        { success: false, error: "Source content is empty. Provide text or valid document." },
         { status: 400 }
       );
     }
@@ -61,7 +88,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!createdSource) {
-      return NextResponse.json({ error: "Failed to persist source in database." }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: "Failed to persist source in database." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -71,6 +101,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error processing source ingestion";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[Sources API] POST error:", error);
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

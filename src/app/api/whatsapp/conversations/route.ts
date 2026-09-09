@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultWhatsAppConversationManager } from "@/lib/whatsapp/whatsapp-conversation";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 /**
  * GET /api/whatsapp/conversations
  * Lists active conversations for an organization
@@ -8,7 +11,10 @@ import { defaultWhatsAppConversationManager } from "@/lib/whatsapp/whatsapp-conv
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("organizationId") || "org_nexus_default";
+    const orgId =
+      req.headers.get("x-organization-id") ||
+      searchParams.get("organizationId") ||
+      "org_primary";
 
     const conversations = await defaultWhatsAppConversationManager.listByOrg(orgId);
 

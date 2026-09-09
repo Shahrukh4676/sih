@@ -112,7 +112,9 @@ export default function AutomationsPage() {
   // Fetch n8n status & execution events
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/automation/status");
+      const res = await fetch("/api/automation/status", {
+        headers: { "x-organization-id": organizationId },
+      });
       const data = await res.json();
       if (data.success) {
         setWorkflowInfo(data);
@@ -120,12 +122,14 @@ export default function AutomationsPage() {
     } catch (err) {
       console.error("Error fetching automation status:", err);
     }
-  }, []);
+  }, [organizationId]);
 
   const fetchExecutions = useCallback(async () => {
     try {
       setExecutionsLoading(true);
-      const res = await fetch("/api/automation/executions");
+      const res = await fetch("/api/automation/executions", {
+        headers: { "x-organization-id": organizationId },
+      });
       const data = await res.json();
       if (data.success && data.executions) {
         setExecutions(data.executions);
@@ -135,7 +139,7 @@ export default function AutomationsPage() {
     } finally {
       setExecutionsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchRules();
