@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, formatDate } from "@/lib/utils";
 import { AutomationEvent } from "@/types";
 
 export default function AutomationExecutionDetailPage() {
@@ -271,7 +271,7 @@ export default function AutomationExecutionDetailPage() {
                 Content {event.resourceId} (v{event.versionId}) signed off by human reviewer. Idempotency check verified.
               </p>
               <div className="text-[11px] text-slate-400 mt-1 font-mono">
-                Triggered: {new Date(event.createdAt).toLocaleString()}
+                Triggered: {formatDate(event.createdAt)}
               </div>
             </div>
 
@@ -315,7 +315,7 @@ export default function AutomationExecutionDetailPage() {
               </p>
               {event.completedAt && (
                 <div className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Completed: {new Date(event.completedAt).toLocaleString()}
+                  Completed: {formatDate(event.completedAt)}
                 </div>
               )}
             </div>

@@ -5,6 +5,7 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { PublishingJob, SocialConnection } from "@/types";
+import { normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const PUBLISHING_JOBS_COLLECTION = "publishingJobs";
 export const SOCIAL_CONNECTIONS_COLLECTION = "socialConnections";
@@ -16,7 +17,7 @@ export async function getSocialConnectionsByOrg(organizationId: string): Promise
       where("organizationId", "==", organizationId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as SocialConnection));
+    return snap.docs.map((d) => normalizeFirestoreData({ id: d.id, ...d.data() }) as SocialConnection);
   } catch (error) {
     console.error("[Publishing Service] Error fetching connections:", error);
     return [];
@@ -31,7 +32,7 @@ export async function getPublishingJobsByOrg(organizationId: string): Promise<Pu
       orderBy("createdAt", "desc")
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as PublishingJob));
+    return snap.docs.map((d) => normalizeFirestoreData({ id: d.id, ...d.data() }) as PublishingJob);
   } catch (error) {
     console.error("[Publishing Service] Error fetching publishing jobs:", error);
     return [];

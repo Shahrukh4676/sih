@@ -23,7 +23,7 @@ import { createSource, getSourceById } from "./sources.service";
 import { createContent } from "./content.service";
 import { SecurityEngine } from "../security/security-engine";
 import { logAuditEvent } from "./audit.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const NEWS_COLLECTION = "newsItems";
 export const NEWS_PREFERENCES_COLLECTION = "newsPreferences";
@@ -102,7 +102,7 @@ export class NewsService {
     try {
       const prefDoc = await getDoc(doc(db, NEWS_PREFERENCES_COLLECTION, organizationId));
       if (prefDoc.exists()) {
-        const data = prefDoc.data() as NewsPreferences;
+        const data = normalizeFirestoreData(prefDoc.data()) as NewsPreferences;
         preferencesMemoryCache.set(organizationId, data);
         return data;
       }
@@ -460,7 +460,7 @@ export class NewsService {
         const snap = await getDocs(query(collection(db, NEWS_COLLECTION), limit(50)));
         if (!snap.empty) {
           for (const d of snap.docs) {
-            const item = d.data() as NewsItem;
+            const item = normalizeFirestoreData(d.data()) as NewsItem;
             newsMemoryCache.set(item.id, item);
           }
         }
@@ -524,7 +524,7 @@ export class NewsService {
     try {
       const d = await getDoc(doc(db, NEWS_COLLECTION, id));
       if (d.exists()) {
-        const item = d.data() as NewsItem;
+        const item = normalizeFirestoreData(d.data()) as NewsItem;
         newsMemoryCache.set(item.id, item);
         return item;
       }

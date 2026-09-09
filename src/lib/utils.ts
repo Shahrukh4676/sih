@@ -9,25 +9,70 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString?: string): string {
-  if (!dateString) return "—";
+function parseToDate(input: unknown): Date | null {
+  if (!input) return null;
+  if (input instanceof Date) return isNaN(input.getTime()) ? null : input;
+
+  // Handle Firestore Timestamp instances
+  if (typeof (input as any).toDate === "function") {
+    try {
+      const d = (input as any).toDate();
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  }
+
+  // Handle Firestore-like timestamp objects { seconds, nanoseconds } or { _seconds, _nanoseconds }
+  if (typeof input === "object" && input !== null) {
+    const anyObj = input as Record<string, any>;
+    const sec = anyObj.seconds !== undefined ? anyObj.seconds : anyObj._seconds;
+    if (sec !== undefined && sec !== null && !isNaN(Number(sec))) {
+      try {
+        const d = new Date(Number(sec) * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  // Handle ISO strings, timestamps, etc.
+  if (typeof input === "string" || typeof input === "number") {
+    try {
+      const d = new Date(input);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+export function formatDate(dateVal?: unknown): string {
+  if (!dateVal) return "—";
+  const d = parseToDate(dateVal);
+  if (!d) return "—";
+
   try {
-    const d = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
-      minute: "numeric"
+      minute: "numeric",
     }).format(d);
   } catch {
-    return dateString;
+    return "—";
   }
 }
 
-export function formatRelativeTime(dateString?: string): string {
-  if (!dateString) return "just now";
+export function formatRelativeTime(dateVal?: unknown): string {
+  if (!dateVal) return "just now";
+  const d = parseToDate(dateVal);
+  if (!d) return "just now";
+
   try {
-    const d = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - d.getTime()) / 1000);
 
@@ -35,9 +80,9 @@ export function formatRelativeTime(dateString?: string): string {
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    return formatDate(dateString);
+    return formatDate(d);
   } catch {
-    return dateString;
+    return "just now";
   }
 }
 

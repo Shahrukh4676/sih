@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/context/AuthContext";
+import { formatRelativeTime, formatDate } from "@/lib/utils";
 
 interface WhatsAppStatusData {
   configured: boolean;
@@ -446,7 +447,9 @@ export default function WhatsAppCommandCenterPage() {
                         </div>
                       )}
                     </div>
-                    <span className="text-[9px] text-slate-400 mt-1 px-1">{msg.timestamp}</span>
+                    <span className="text-[9px] text-slate-400 mt-1 px-1">
+                      {typeof msg.timestamp === "string" ? msg.timestamp : formatDate(msg.timestamp)}
+                    </span>
                   </div>
                 ))}
                 {simulating && (
@@ -676,7 +679,7 @@ export default function WhatsAppCommandCenterPage() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[10px] text-slate-400">
-                        Updated {new Date(conv.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        Updated {formatRelativeTime(conv.updatedAt)}
                       </span>
                       <button
                         onClick={async () => {

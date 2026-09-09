@@ -32,7 +32,7 @@ import { encryptToken, decryptToken } from "../security/token-encryption";
 import { getLinkedInClient } from "../integrations/linkedin/linkedin-client";
 import { getContentById, updateContent, updateContentStatus } from "./content.service";
 import { logAuditEvent } from "./audit.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const LINKEDIN_CONNECTIONS_COLLECTION = "linkedinConnections";
 export const PUBLISHING_RECORDS_COLLECTION = "publishingRecords";
@@ -533,7 +533,7 @@ export class LinkedInService {
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const rec = snap.docs[0].data() as PublishingRecord;
+        const rec = normalizeFirestoreData(snap.docs[0].data()) as PublishingRecord;
         publishingRecordsCache.set(idempotencyKey, rec);
         console.log(`${logPrefix} Firestore idempotency match: already published.`);
         return {
@@ -833,7 +833,7 @@ export class LinkedInService {
       );
       const snap = await getDocs(q);
       snap.forEach((d) => {
-        const data = d.data() as PublishingRecord;
+        const data = normalizeFirestoreData(d.data()) as PublishingRecord;
         if (!list.some((r) => r.id === data.id)) {
           list.push(data);
         }

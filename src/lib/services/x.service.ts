@@ -31,7 +31,7 @@ import { encryptToken, decryptToken } from "../security/token-encryption";
 import { getXClient, XClient } from "../integrations/x/x-client";
 import { getContentById, updateContent, updateContentStatus } from "./content.service";
 import { logAuditEvent } from "./audit.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const X_CONNECTIONS_COLLECTION = "xConnections";
 export const PUBLISHING_RECORDS_COLLECTION = "publishingRecords";
@@ -113,7 +113,7 @@ export class XService {
         const ref = doc(db, X_OAUTH_STATES_COLLECTION, state);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          record = snap.data() as XOAuthState;
+          record = normalizeFirestoreData(snap.data()) as XOAuthState;
         }
       } catch (err) {
         console.warn("[XService] Firestore state read warning:", err);
@@ -295,7 +295,7 @@ export class XService {
         let snap = await getDocs(q);
 
         if (!snap.empty) {
-          match = snap.docs[0].data() as XConnection;
+          match = normalizeFirestoreData(snap.docs[0].data()) as XConnection;
           xConnectionsCache.set(match.id, match);
         }
       } catch (err) {

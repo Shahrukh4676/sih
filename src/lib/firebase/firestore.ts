@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./config";
 import { Content, Source, Approval, AuditLog, Automation } from "@/types";
+import { normalizeFirestoreData } from "./firestore-utils";
 
 export const COLLECTIONS = {
   USERS: "users",
@@ -44,7 +45,7 @@ export async function getDocument<T = DocumentData>(collectionName: string, id: 
     const docRef = doc(db, collectionName, id);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return { id: snap.id, ...snap.data() } as T;
+      return normalizeFirestoreData({ id: snap.id, ...snap.data() }) as T;
     }
     return null;
   } catch (error) {
@@ -84,7 +85,7 @@ export async function getOrgContents(organizationId: string, limitCount: number 
       limit(limitCount)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Content));
+    return querySnapshot.docs.map((doc) => normalizeFirestoreData({ id: doc.id, ...doc.data() }) as Content);
   } catch (error) {
     console.warn(`[Firestore Notice] Falling back to memory/mock state:`, error);
     return [];
@@ -103,7 +104,7 @@ export async function getPendingApprovals(organizationId: string): Promise<Appro
       orderBy("createdAt", "desc")
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Approval));
+    return querySnapshot.docs.map((doc) => normalizeFirestoreData({ id: doc.id, ...doc.data() }) as Approval);
   } catch (error) {
     console.warn(`[Firestore Notice] Approvals query notice:`, error);
     return [];

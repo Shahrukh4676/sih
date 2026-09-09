@@ -7,7 +7,7 @@ import { db } from "../firebase/config";
 import { Approval } from "@/types";
 import { updateContentStatus, getContentById } from "./content.service";
 import { AutomationService } from "./automation.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const APPROVALS_COLLECTION = "approvals";
 
@@ -50,7 +50,7 @@ export async function getPendingApprovalsByOrg(organizationId: string): Promise<
     );
     const snap = await getDocs(q);
     const items = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() } as Approval))
+      .map((d) => normalizeFirestoreData({ id: d.id, ...d.data() }) as Approval)
       .filter((d) => d.status === "PENDING");
     items.sort(
       (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()

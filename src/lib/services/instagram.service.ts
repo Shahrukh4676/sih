@@ -31,7 +31,7 @@ import { encryptToken, decryptToken } from "../security/token-encryption";
 import { getInstagramClient, InstagramClient } from "../integrations/instagram/instagram-client";
 import { getContentById, updateContent, updateContentStatus } from "./content.service";
 import { logAuditEvent } from "./audit.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const INSTAGRAM_CONNECTIONS_COLLECTION = "instagramConnections";
 export const PUBLISHING_RECORDS_COLLECTION = "publishingRecords";
@@ -114,7 +114,7 @@ export class InstagramService {
         const ref = doc(db, INSTAGRAM_OAUTH_STATES_COLLECTION, state);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          record = snap.data() as InstagramOAuthState;
+          record = normalizeFirestoreData(snap.data()) as InstagramOAuthState;
         }
       } catch (err) {
         console.warn("[InstagramService] Firestore state read warning:", err);
@@ -289,7 +289,7 @@ export class InstagramService {
         let snap = await getDocs(q);
 
         if (!snap.empty) {
-          match = snap.docs[0].data() as InstagramConnection;
+          match = normalizeFirestoreData(snap.docs[0].data()) as InstagramConnection;
           igConnectionsCache.set(match.id, match);
         }
       } catch (err) {

@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getD
 import { db } from "../firebase/config";
 import { Source, SourceProcessingStatus } from "@/types";
 import { StructuredSourceIntelligence } from "../ai/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const SOURCES_COLLECTION = "sources";
 
@@ -61,7 +61,7 @@ export async function getSourceById(sourceId: string): Promise<Source | null> {
     const ref = doc(db, SOURCES_COLLECTION, sourceId);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const source = { id: snap.id, sourceId: snap.id, ...snap.data() } as Source;
+      const source = normalizeFirestoreData({ id: snap.id, sourceId: snap.id, ...snap.data() }) as Source;
       inMemorySourcesCache.set(sourceId, source);
       return source;
     }
@@ -107,7 +107,7 @@ export async function getSourcesByOrg(organizationId: string): Promise<Source[]>
       orderBy("createdAt", "desc")
     );
     const snap = await getDocs(q);
-    const results = snap.docs.map((d) => ({ id: d.id, sourceId: d.id, ...d.data() } as Source));
+    const results = snap.docs.map((d) => normalizeFirestoreData({ id: d.id, sourceId: d.id, ...d.data() }) as Source);
     if (results.length > 0) return results;
   } catch (error) {
     console.warn("[Sources Service] Firestore query notice:", error);

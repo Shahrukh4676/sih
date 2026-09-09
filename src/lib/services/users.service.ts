@@ -8,6 +8,23 @@ import { User } from "@/types";
 
 export const USERS_COLLECTION = "users";
 
+function toSafeIsoString(val: any, fallback = new Date().toISOString()): string {
+  if (!val) return fallback;
+  if (typeof val.toDate === "function") {
+    try { return val.toDate().toISOString(); } catch { return fallback; }
+  }
+  if (typeof val === "object" && typeof val.seconds === "number") {
+    try { return new Date(val.seconds * 1000).toISOString(); } catch { return fallback; }
+  }
+  if (typeof val === "string") return val;
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? fallback : d.toISOString();
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * Retrieve user profile from Firestore by UID
  */
@@ -28,9 +45,9 @@ export async function getUserProfile(uid: string): Promise<User | null> {
         status: data.status || "ACTIVE",
         mfaEnabled: data.mfaEnabled ?? false,
         activeSessionsCount: data.activeSessionsCount ?? 1,
-        lastLoginAt: data.lastLoginAt ? (data.lastLoginAt.toDate ? data.lastLoginAt.toDate().toISOString() : data.lastLoginAt) : new Date().toISOString(),
-        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : new Date().toISOString(),
-        updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : new Date().toISOString()
+        lastLoginAt: toSafeIsoString(data.lastLoginAt),
+        createdAt: toSafeIsoString(data.createdAt),
+        updatedAt: toSafeIsoString(data.updatedAt)
       };
     }
     return null;
@@ -124,8 +141,8 @@ export async function getOrganizationUsers(organizationId: string): Promise<User
         organizationId: data.organizationId || null,
         role: data.role || "VIEWER",
         status: data.status || "ACTIVE",
-        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : "",
-        updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : ""
+        createdAt: toSafeIsoString(data.createdAt, ""),
+        updatedAt: toSafeIsoString(data.updatedAt, "")
       };
     });
   } catch (error) {

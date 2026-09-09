@@ -9,6 +9,23 @@ import { updateUserProfile, USERS_COLLECTION } from "./users.service";
 
 export const ORGANIZATIONS_COLLECTION = "organizations";
 
+function toSafeIsoString(val: any, fallback = new Date().toISOString()): string {
+  if (!val) return fallback;
+  if (typeof val.toDate === "function") {
+    try { return val.toDate().toISOString(); } catch { return fallback; }
+  }
+  if (typeof val === "object" && typeof val.seconds === "number") {
+    try { return new Date(val.seconds * 1000).toISOString(); } catch { return fallback; }
+  }
+  if (typeof val === "string") return val;
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? fallback : d.toISOString();
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * Fetch organization by ID
  */
@@ -30,8 +47,8 @@ export async function getOrganization(orgId: string): Promise<Organization | nul
         enforceMFA: data.enforceMFA ?? true,
         defaultApprovalPolicy: data.defaultApprovalPolicy || "STRICT_HUMAN_IN_THE_LOOP",
         brandVoiceGuidelines: data.brandVoiceGuidelines,
-        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : new Date().toISOString(),
-        updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : new Date().toISOString()
+        createdAt: toSafeIsoString(data.createdAt),
+        updatedAt: toSafeIsoString(data.updatedAt)
       };
     }
     return null;

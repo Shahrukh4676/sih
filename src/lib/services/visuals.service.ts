@@ -8,7 +8,7 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { VisualAsset, VisualAssetStatus } from "@/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const VISUAL_ASSETS_COLLECTION = "visualAssets";
 
@@ -66,7 +66,7 @@ export class VisualsService {
       const ref = doc(db, VISUAL_ASSETS_COLLECTION, assetId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        const item = { id: snap.id, assetId: snap.id, ...snap.data() } as VisualAsset;
+        const item = normalizeFirestoreData({ id: snap.id, assetId: snap.id, ...snap.data() }) as VisualAsset;
         inMemoryVisualAssetsCache.set(assetId, item);
         return item;
       }
@@ -88,7 +88,7 @@ export class VisualsService {
         orderBy("version", "desc")
       );
       const snap = await getDocs(q);
-      const results = snap.docs.map((d) => ({ id: d.id, assetId: d.id, ...d.data() } as VisualAsset));
+      const results = snap.docs.map((d) => normalizeFirestoreData({ id: d.id, assetId: d.id, ...d.data() }) as VisualAsset);
       if (results.length > 0) return results;
     } catch (error) {
       console.warn("[Visuals Service] Firestore query notice for content visuals:", error);
@@ -140,7 +140,7 @@ export class VisualsService {
         orderBy("createdAt", "desc")
       );
       const snap = await getDocs(q);
-      const results = snap.docs.map((d) => ({ id: d.id, assetId: d.id, ...d.data() } as VisualAsset));
+      const results = snap.docs.map((d) => normalizeFirestoreData({ id: d.id, assetId: d.id, ...d.data() }) as VisualAsset);
       if (results.length > 0) return results;
     } catch (error) {
       console.warn("[Visuals Service] Firestore query notice for org visuals:", error);

@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { AuditLog, AuditVerificationResult, SecurityEvent } from "@/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const AUDIT_LOGS_COLLECTION = "auditLogs";
 export const SECURITY_EVENTS_COLLECTION = "securityEvents";
@@ -173,7 +173,7 @@ export async function verifyAuditChain(organizationId: string): Promise<AuditVer
     );
     const snap = await getDocs(q);
     for (const d of snap.docs) {
-      const data = d.data() as AuditLog;
+      const data = normalizeFirestoreData(d.data()) as AuditLog;
       if (!memoryAuditLogs.has(data.id)) {
         logs.push(data);
         memoryAuditLogs.set(data.id, data);
@@ -280,7 +280,7 @@ export async function getAuditLogsByOrg(
     );
     const snap = await getDocs(q);
     for (const d of snap.docs) {
-      const data = d.data() as AuditLog;
+      const data = normalizeFirestoreData(d.data()) as AuditLog;
       if (!result.some((l) => l.id === data.id)) {
         result.push(data);
       }
@@ -314,7 +314,7 @@ export async function getSecurityEventsByOrg(organizationId: string): Promise<Se
       orderBy("timestamp", "desc")
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as SecurityEvent));
+    return snap.docs.map((d) => normalizeFirestoreData({ id: d.id, ...d.data() }) as SecurityEvent);
   } catch (error) {
     console.warn("[Audit Service] Error fetching security events:", error);
     return [];

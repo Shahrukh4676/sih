@@ -15,7 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { encryptToken, decryptToken } from "../security/token-encryption";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 import { GeminiProvider } from "../ai/gemini.provider";
 import { OllamaProvider } from "../ai/ollama.provider";
 import { AIProvider } from "../ai/types";
@@ -64,7 +64,7 @@ export async function getOrgAISettings(organizationId: string): Promise<OrgAISet
     const ref = doc(db, ORG_AI_SETTINGS_COLLECTION, orgId);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const data = snap.data() as OrgAISettings;
+      const data = normalizeFirestoreData(snap.data()) as OrgAISettings;
       const merged: OrgAISettings = {
         ...defaultSettings,
         ...data,

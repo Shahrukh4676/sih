@@ -7,7 +7,7 @@
 import { doc, getDoc, setDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { SecurityScan, SecurityEvent } from "@/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const SECURITY_SCANS_COLLECTION = "securityScans";
 export const SECURITY_EVENTS_COLLECTION = "securityEvents";
@@ -65,7 +65,7 @@ export class SecurityService {
       const ref = doc(db, SECURITY_SCANS_COLLECTION, scanId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        const item = { id: snap.id, securityScanId: snap.id, ...snap.data() } as SecurityScan;
+        const item = normalizeFirestoreData({ id: snap.id, securityScanId: snap.id, ...snap.data() }) as SecurityScan;
         inMemoryScansCache.set(scanId, item);
         return item;
       }
@@ -87,7 +87,7 @@ export class SecurityService {
         orderBy("createdAt", "desc")
       );
       const snap = await getDocs(q);
-      const results = snap.docs.map((d) => ({ id: d.id, securityScanId: d.id, ...d.data() } as SecurityScan));
+      const results = snap.docs.map((d) => normalizeFirestoreData({ id: d.id, securityScanId: d.id, ...d.data() }) as SecurityScan);
       if (results.length > 0) return results;
     } catch (error) {
       console.warn("[Security Service] Firestore query notice for org scans:", error);

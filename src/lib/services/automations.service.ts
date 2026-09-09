@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Automation, AutomationCondition, AutomationEvent } from "@/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 import { logAuditEvent } from "./audit.service";
 import { AutomationService } from "./automation.service";
 
@@ -48,7 +48,7 @@ export class AutomationsManager {
       const dbItems: Automation[] = [];
 
       for (const d of snap.docs) {
-        const item = { id: d.id, ...d.data() } as Automation;
+        const item = normalizeFirestoreData({ id: d.id, ...d.data() }) as Automation;
         automationsMemoryCache.set(item.id, item);
         dbItems.push(item);
       }
@@ -80,7 +80,7 @@ export class AutomationsManager {
     try {
       const d = await getDoc(doc(db, AUTOMATIONS_COLLECTION, id));
       if (d.exists()) {
-        const item = { id: d.id, ...d.data() } as Automation;
+        const item = normalizeFirestoreData({ id: d.id, ...d.data() }) as Automation;
         automationsMemoryCache.set(item.id, item);
         return item;
       }

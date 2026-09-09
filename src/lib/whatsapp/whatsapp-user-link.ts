@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, serv
 import { db } from "../firebase/config";
 import { WhatsAppConnection, WhatsAppConnectionStatus } from "@/types";
 import { logAuditEvent } from "../services/audit.service";
+import { normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const WHATSAPP_CONNECTIONS_COLLECTION = "whatsappConnections";
 
@@ -177,7 +178,7 @@ export class WhatsAppUserLinkService {
       const snap = await getDocs(q);
 
       if (!snap.empty) {
-        const docData = snap.docs[0].data() as WhatsAppConnection;
+        const docData = normalizeFirestoreData(snap.docs[0].data()) as WhatsAppConnection;
         connectionsCache.set(cleanPhone, docData);
         return docData;
       }
@@ -237,7 +238,7 @@ export class WhatsAppUserLinkService {
       );
       const snap = await getDocs(q);
       snap.forEach((doc) => {
-        const data = doc.data() as WhatsAppConnection;
+        const data = normalizeFirestoreData(doc.data()) as WhatsAppConnection;
         if (!results.some((r) => r.id === data.id)) {
           results.push(data);
         }

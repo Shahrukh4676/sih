@@ -14,7 +14,7 @@ import { AutomationEvent, AutomationEventStatus } from "@/types";
 import { getN8nClient, ApprovedContentTriggerPayload } from "../automation/n8n-client";
 import { getContentById } from "./content.service";
 import { logAuditEvent } from "./audit.service";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const AUTOMATION_EVENTS_COLLECTION = "automationEvents";
 
@@ -376,7 +376,7 @@ export class AutomationService {
       const ref = doc(db, AUTOMATION_EVENTS_COLLECTION, idOrEventId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        const item = snap.data() as AutomationEvent;
+        const item = normalizeFirestoreData(snap.data()) as AutomationEvent;
         eventsCache.set(item.id, item);
         return item;
       }
@@ -393,7 +393,7 @@ export class AutomationService {
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const item = snap.docs[0].data() as AutomationEvent;
+        const item = normalizeFirestoreData(snap.docs[0].data()) as AutomationEvent;
         eventsCache.set(item.id, item);
         return item;
       }
@@ -428,7 +428,7 @@ export class AutomationService {
       );
       const snap = await getDocs(q);
       snap.forEach((d) => {
-        const data = d.data() as AutomationEvent;
+        const data = normalizeFirestoreData(d.data()) as AutomationEvent;
         if (!list.some((item) => item.id === data.id)) {
           list.push(data);
         }

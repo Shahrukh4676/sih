@@ -5,7 +5,7 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Content, ContentStatus, ContentVersion } from "@/types";
-import { cleanForFirestore } from "../firebase/firestore-utils";
+import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const CONTENT_COLLECTION = "content";
 
@@ -75,7 +75,7 @@ export async function getContentById(contentId: string): Promise<Content | null>
     const ref = doc(db, CONTENT_COLLECTION, contentId);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const item = { id: snap.id, contentId: snap.id, ...snap.data() } as Content;
+      const item = normalizeFirestoreData({ id: snap.id, contentId: snap.id, ...snap.data() }) as Content;
       inMemoryContentCache.set(contentId, item);
       return item;
     }
@@ -187,7 +187,7 @@ export async function getContentByOrg(
     );
     const snap = await getDocs(q);
     const results = snap.docs.map(
-      (d) => ({ id: d.id, contentId: d.id, ...d.data() } as Content)
+      (d) => normalizeFirestoreData({ id: d.id, contentId: d.id, ...d.data() }) as Content
     );
     if (results.length > 0) {
       const sorted = sortByDateDesc(results);

@@ -10,6 +10,7 @@
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { WhatsAppConversation, WhatsAppConversationState } from "@/types";
+import { normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const WHATSAPP_CONVERSATIONS_COLLECTION = "whatsappConversations";
 
@@ -40,7 +41,7 @@ export class WhatsAppConversationManager {
       const snap = await getDoc(docRef);
 
       if (snap.exists()) {
-        const data = snap.data() as WhatsAppConversation;
+        const data = normalizeFirestoreData(snap.data()) as WhatsAppConversation;
         conversationsCache.set(convId, data);
         return data;
       }
@@ -140,7 +141,7 @@ export class WhatsAppConversationManager {
       const docRef = doc(db, WHATSAPP_CONVERSATIONS_COLLECTION, convId);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        const data = snap.data() as WhatsAppConversation;
+        const data = normalizeFirestoreData(snap.data()) as WhatsAppConversation;
         conversationsCache.set(convId, data);
         return data;
       }
@@ -170,7 +171,7 @@ export class WhatsAppConversationManager {
       );
       const snap = await getDocs(q);
       snap.forEach((d) => {
-        const data = d.data() as WhatsAppConversation;
+        const data = normalizeFirestoreData(d.data()) as WhatsAppConversation;
         if (!list.some((item) => item.id === data.id)) {
           list.push(data);
         }
