@@ -73,11 +73,11 @@ export class N8nClient {
   }
 
   public getCallbackSecret(): string {
-    return getSecret("N8N_CALLBACK_SECRET", "nexus_n8n_cloud_callback_secret_2025");
+    return getSecret("N8N_CALLBACK_SECRET");
   }
 
   public getWebhookSecret(): string {
-    return getSecret("N8N_WEBHOOK_SECRET", "nexus_n8n_cloud_webhook_secret_2025");
+    return getSecret("N8N_WEBHOOK_SECRET");
   }
 
   public buildHeaders(): Record<string, string> {

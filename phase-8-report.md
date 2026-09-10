@@ -179,9 +179,9 @@ Add the following environment variables in your Netlify Site Settings (**Configu
 | `LINKEDIN_CLIENT_ID` | Your LinkedIn App Client ID | `78xxxxxxxxxxxx` |
 | `LINKEDIN_CLIENT_SECRET` | Your LinkedIn App Client Secret | `wYxxxxxxxxxxxxxxxx` |
 | `LINKEDIN_REDIRECT_URI` | Full URL to the callback endpoint | `https://automatedplatform.netlify.app/api/integrations/linkedin/callback` |
-| `LINKEDIN_API_VERSION` | LinkedIn REST API Version | `202502` |
+| `LINKEDIN_API_VERSION` | LinkedIn REST API Version | `202608` |
 | `LINKEDIN_ENCRYPTION_KEY` | 32+ byte random secret string for AES-256-GCM | `nexus_prod_aes_key_993821047481948194` |
-| `N8N_CALLBACK_SECRET` | Shared secret between n8n and NEXUS | `nexus_n8n_cloud_callback_secret_2025` |
+| `N8N_CALLBACK_SECRET` | Shared secret between n8n and NEXUS | `[CONFIGURED_IN_NETLIFY_ENV]` |
 
 ---
 
@@ -196,7 +196,7 @@ The existing n8n Cloud workflow (`uunidN8XWaIcA5xY`) at `https://shahrukh24.app.
      ```http
      POST https://automatedplatform.netlify.app/api/integrations/linkedin/publish
      Content-Type: application/json
-     x-nexus-secret: nexus_n8n_cloud_callback_secret_2025
+     x-nexus-secret: [CONFIGURED_IN_NETLIFY_ENV]
      
      {
        "contentId": "cnt_...",
@@ -210,7 +210,7 @@ The existing n8n Cloud workflow (`uunidN8XWaIcA5xY`) at `https://shahrukh24.app.
    - n8n posts the publication confirmation back to NEXUS:
      ```http
      POST https://automatedplatform.netlify.app/api/automation/callback
-     x-nexus-secret: nexus_n8n_cloud_callback_secret_2025
+     x-nexus-secret: [CONFIGURED_IN_NETLIFY_ENV]
      
      {
        "eventId": "evt_...",

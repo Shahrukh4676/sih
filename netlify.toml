@@ -4,20 +4,12 @@
 
 [build.environment]
   LINKEDIN_API_VERSION = "202608"
-  N8N_CALLBACK_SECRET = "nexus_n8n_cloud_callback_secret_2025"
-  WHATSAPP_VERIFY_TOKEN = "nexus_whatsapp_verify_token_secure"
 
 [context.production.environment]
   LINKEDIN_API_VERSION = "202608"
-  N8N_CALLBACK_SECRET = "nexus_n8n_cloud_callback_secret_2025"
-  WHATSAPP_VERIFY_TOKEN = "nexus_whatsapp_verify_token_secure"
 
 [context.deploy-preview.environment]
   LINKEDIN_API_VERSION = "202608"
-  N8N_CALLBACK_SECRET = "nexus_n8n_cloud_callback_secret_2025"
-  WHATSAPP_VERIFY_TOKEN = "nexus_whatsapp_verify_token_secure"
 
 [context.branch-deploy.environment]
   LINKEDIN_API_VERSION = "202608"
-  N8N_CALLBACK_SECRET = "nexus_n8n_cloud_callback_secret_2025"
-  WHATSAPP_VERIFY_TOKEN = "nexus_whatsapp_verify_token_secure"

@@ -19,9 +19,22 @@
 // ==============================================================================
 
 import assert from "node:assert";
+import fs from "node:fs";
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
-const N8N_CALLBACK_SECRET = process.env.N8N_CALLBACK_SECRET || "nexus_n8n_cloud_callback_secret_2025";
+
+function resolveSecret(key) {
+  if (process.env[key]) return process.env[key];
+  try {
+    if (fs.existsSync(".env.local")) {
+      const match = fs.readFileSync(".env.local", "utf8").match(new RegExp(`^${key}=(.*)$`, "m"));
+      if (match && match[1]) return match[1].trim().replace(/^['"]|['"]$/g, "");
+    }
+  } catch {}
+  return "";
+}
+
+const N8N_CALLBACK_SECRET = resolveSecret("N8N_CALLBACK_SECRET");
 
 console.log("==================================================================");
 console.log("🚀 NEXUS AI — REAL PRODUCTION E2E & SECURITY VERIFICATION SUITE");
