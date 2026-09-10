@@ -226,6 +226,8 @@ export class N8nClient {
       candidate =
         h.get("x-nexus-callback-secret") ||
         h.get("X-NEXUS-CALLBACK-SECRET") ||
+        h.get("x-nexus-secret") ||
+        h.get("X-NEXUS-SECRET") ||
         h.get("x-nexus-signature") ||
         h.get("X-NEXUS-SIGNATURE") ||
         h.get("x-callback-secret") ||
@@ -243,6 +245,8 @@ export class N8nClient {
       candidate =
         h["x-nexus-callback-secret"] ||
         h["X-NEXUS-CALLBACK-SECRET"] ||
+        h["x-nexus-secret"] ||
+        h["X-NEXUS-SECRET"] ||
         h["x-nexus-signature"] ||
         h["X-NEXUS-SIGNATURE"] ||
         h["x-callback-secret"] ||

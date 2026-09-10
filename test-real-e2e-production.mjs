@@ -555,6 +555,7 @@ async function main() {
       headers: {
         "Content-Type": "application/json",
         "X-NEXUS-CALLBACK-SECRET": N8N_CALLBACK_SECRET,
+        "x-nexus-secret": N8N_CALLBACK_SECRET,
       },
       body: JSON.stringify({
         eventId: eventAId,
@@ -583,6 +584,7 @@ async function main() {
       headers: {
         "Content-Type": "application/json",
         "X-NEXUS-CALLBACK-SECRET": N8N_CALLBACK_SECRET,
+        "x-nexus-secret": N8N_CALLBACK_SECRET,
       },
       body: JSON.stringify({
         eventId: eventAId,
