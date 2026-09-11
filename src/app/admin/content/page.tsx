@@ -332,30 +332,43 @@ export default function AdminContentPage() {
             </div>
 
             {/* Quick Action Footer */}
-            <div className="pt-4 border-t border-slate-800 flex items-center gap-3">
-              {(selectedContent.status === "AWAITING_APPROVAL" || selectedContent.status === "SECURITY_REVIEW") && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full bg-blue-600 hover:bg-blue-500"
-                  onClick={() => handleApprove(selectedContent.id)}
-                >
-                  <CheckSquare className="w-4 h-4 mr-1.5" />
-                  Register Executive Approval
-                </Button>
-              )}
-              {selectedContent.status === "APPROVED" && (
-                <Link href={`/admin/publishing?contentId=${selectedContent.id}`} className="w-full">
+            <div className="pt-4 border-t border-slate-800 space-y-2">
+              <div className="flex items-center gap-3">
+                {(selectedContent.status === "AWAITING_APPROVAL" || selectedContent.status === "SECURITY_REVIEW") && (
                   <Button
                     variant="primary"
                     size="sm"
-                    className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    className="w-full bg-blue-600 hover:bg-blue-500"
+                    onClick={() => handleApprove(selectedContent.id)}
                   >
-                    <SendHorizontal className="w-4 h-4 mr-1.5" />
-                    Publish to LinkedIn (API 202608)
+                    <CheckSquare className="w-4 h-4 mr-1.5" />
+                    Register Executive Approval
                   </Button>
-                </Link>
-              )}
+                )}
+                {selectedContent.status === "APPROVED" && (
+                  <Link href={`/admin/publishing?contentId=${selectedContent.id}`} className="w-full">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    >
+                      <SendHorizontal className="w-4 h-4 mr-1.5" />
+                      Publish to LinkedIn (API 202608)
+                    </Button>
+                  </Link>
+                )}
+              </div>
+
+              <Link href={`/admin/content/${selectedContent.id}`} className="block w-full">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-slate-700 text-slate-300 hover:text-white"
+                >
+                  <Eye className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+                  Full Deep Inspection &amp; Audit Hash ➔
+                </Button>
+              </Link>
             </div>
           </div>
         )}

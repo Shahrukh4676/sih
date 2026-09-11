@@ -16,6 +16,7 @@ import {
   ExternalLink,
   ChevronRight,
   Plus,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -46,7 +47,6 @@ export default function UserWorkspaceHomePage() {
   const pendingApprovals = recentContent.filter(
     (c) => c.status === "AWAITING_APPROVAL" || c.status === "SECURITY_REVIEW" || c.status === "GENERATED"
   );
-  const publishedContent = recentContent.filter((c) => c.status === "PUBLISHED");
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">
@@ -57,10 +57,10 @@ export default function UserWorkspaceHomePage() {
           <span>User Workspace</span>
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          Good morning, {userName}.
+          Turn information into communication.
         </h1>
-        <p className="text-base text-slate-500 font-medium">
-          Turn information into communication. What would you like to build today?
+        <p className="text-sm text-slate-500 font-medium">
+          Good morning, {userName}. Turn complex source documents, advisories, reports, and prompts into secure, verified communication.
         </p>
       </div>
 
@@ -77,9 +77,9 @@ export default function UserWorkspaceHomePage() {
               <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
                 <Sparkles className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight">Create Manually</h2>
+              <h2 className="text-2xl font-bold tracking-tight">✦ Create manually</h2>
               <p className="text-xs text-blue-100 leading-relaxed max-w-sm">
-                Paste an article, upload a PDF advisory, or provide a URL. Our multi-model engine transforms it into verified LinkedIn, X, and executive communication assets in seconds.
+                Paste an article, upload a document, or add a URL. Transform once into verified LinkedIn, X, and executive communication assets in seconds.
               </p>
             </div>
 
@@ -101,9 +101,9 @@ export default function UserWorkspaceHomePage() {
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
                 <Workflow className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight">Automate</h2>
+              <h2 className="text-2xl font-bold tracking-tight">⚡ Automate</h2>
               <p className="text-xs text-slate-500 leading-relaxed max-w-sm">
-                Set up autonomous event rules. When new advisories or RSS topics arrive, auto-generate drafts, run zero-trust screening, and queue for compliance approval.
+                Set up autonomous event rules. When new advisories arrive, auto-generate drafts, run zero-trust screening, and queue for compliance approval.
               </p>
             </div>
 
@@ -115,9 +115,39 @@ export default function UserWorkspaceHomePage() {
         </Link>
       </div>
 
-      {/* 3. Pending Approvals & Quick Distribution */}
+      {/* 3. Visual NEXUS Flow Ribbon */}
+      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
+            NEXUS Flow Architecture
+          </span>
+          <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Zero-Trust Pipeline
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs">
+          {[
+            { step: "01", name: "SOURCE", desc: "Ingest Document" },
+            { step: "02", name: "UNDERSTAND", desc: "Semantic Extract" },
+            { step: "03", name: "PROTECT", desc: "Zero-Trust Scan" },
+            { step: "04", name: "TRANSFORM", desc: "AI Output Multi" },
+            { step: "05", name: "APPROVE", desc: "Human Gate" },
+            { step: "06", name: "DISTRIBUTE", desc: "LinkedIn 202608" },
+          ].map((item) => (
+            <div key={item.step} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="text-[9px] font-mono text-slate-400 font-bold block">{item.step}</span>
+              <p className="font-bold text-slate-800 text-[11px] mt-0.5">{item.name}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Pending Approvals Banner */}
       {pendingApprovals.length > 0 && (
-        <div className="rounded-2xl bg-amber-50/60 border border-amber-200/80 p-6 space-y-4">
+        <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
@@ -125,16 +155,17 @@ export default function UserWorkspaceHomePage() {
                 Pending Compliance Review ({pendingApprovals.length})
               </h3>
             </div>
-            <Link href="/app/activity" className="text-xs font-semibold text-amber-700 hover:underline">
-              View all
+            <Link href="/app/approvals" className="text-xs font-semibold text-amber-700 hover:underline">
+              Open Approvals ({pendingApprovals.length}) →
             </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {pendingApprovals.slice(0, 2).map((item) => (
-              <div
+              <Link
                 key={item.id}
-                className="bg-white p-4 rounded-xl border border-amber-200/60 shadow-2xs space-y-2"
+                href={`/app/content/${item.id}`}
+                className="bg-white p-4 rounded-xl border border-amber-200/60 shadow-2xs space-y-2 hover:border-amber-300 transition-colors block"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-800 truncate max-w-[200px]">{item.title}</span>
@@ -149,13 +180,13 @@ export default function UserWorkspaceHomePage() {
                   <span>{formatRelativeTime(item.createdAt)}</span>
                   <span className="font-medium text-blue-600">{item.outputFormat || "LINKEDIN"}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       )}
 
-      {/* 4. Recent Transformed Content */}
+      {/* 5. Recent Transformed Content */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -192,9 +223,10 @@ export default function UserWorkspaceHomePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recentContent.map((item) => (
-              <div
+              <Link
                 key={item.id}
-                className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
+                href={`/app/content/${item.id}`}
+                className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between block"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
@@ -216,17 +248,15 @@ export default function UserWorkspaceHomePage() {
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span className="text-[11px] font-semibold">Security Passed</span>
                   </div>
-                  <Link href="/app/activity" className="text-slate-400 hover:text-slate-700">
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
+                  <span className="text-blue-600 font-medium text-[11px]">Inspect →</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
       </div>
 
-      {/* 5. Connected Channels Status Pill */}
+      {/* 6. Connected Channels Status Pill */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">

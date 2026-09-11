@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Workflow,
   Plus,
@@ -15,8 +16,10 @@ import {
   RefreshCw,
   Zap,
   Activity,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { WorkflowCanvas } from "@/components/ui/WorkflowCanvas";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -151,32 +154,39 @@ export default function AdminAutomationsPage() {
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <Workflow className="w-6 h-6 text-cyan-500" />
-              Autonomous Enterprise Workflows
-            </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">
-              n8n Cloud Orchestration
-            </span>
-          </div>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Orchestrate end-to-end ingestion, AI transformation, zero-trust security clearance, and multi-channel publication without human toil.
-          </p>
-        </div>
-
-        <Button
-          onClick={() => info("Custom Workflow", "Enterprise n8n webhook nodes can be provisioned in Settings.")}
-          variant="primary"
-          size="sm"
-          className="bg-cyan-600 hover:bg-cyan-500 shadow-lg shadow-cyan-600/20 self-start md:self-auto"
-        >
-          <Plus className="w-4 h-4 mr-1.5" />
-          Create Workflow Node
-        </Button>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Automation" },
+          { label: "Workflows" },
+        ]}
+        title="Autonomous Enterprise Workflows"
+        description="Orchestrate end-to-end ingestion, AI transformation, zero-trust security clearance, and multi-channel publication without human toil."
+        badge={
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">
+            n8n Cloud Orchestration
+          </span>
+        }
+        primaryAction={
+          <Button
+            variant="primary"
+            size="sm"
+            className="bg-cyan-600 hover:bg-cyan-500"
+            onClick={() => info("Custom Workflow", "Enterprise n8n webhook nodes can be provisioned in Settings.")}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create Workflow Node
+          </Button>
+        }
+        secondaryActions={
+          <Link href="/admin/runs">
+            <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white">
+              <Activity className="w-4 h-4 mr-1.5 text-cyan-400" />
+              Execution Runs
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Visual Pipeline Showcase */}
       <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
@@ -269,7 +279,15 @@ export default function AdminAutomationsPage() {
               Real-time audit log of triggered orchestrations, execution durations, and output statuses.
             </p>
           </div>
-          <span className="text-xs text-slate-400 font-mono">{logs.length} Recent Invocations</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-mono hidden sm:inline">{logs.length} Recent Invocations</span>
+            <Link href="/admin/runs">
+              <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white text-xs">
+                View All Runs
+                <ArrowRight className="w-3.5 h-3.5 ml-1 text-cyan-400" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="divide-y divide-slate-800/60">

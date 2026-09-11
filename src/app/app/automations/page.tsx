@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import {
   Workflow,
   Plus,
@@ -14,245 +15,218 @@ import {
   Share2,
   Zap,
   ArrowRight,
-  Trash2,
+  Copy,
+  Edit2,
   ChevronRight,
   Layers,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { WorkflowCanvas } from "@/components/ui/WorkflowCanvas";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/ToastProvider";
 
-interface AutomationRule {
+export interface AutomationRule {
   id: string;
   name: string;
-  triggerTopic: string;
-  outputFormat: string;
-  requiresApproval: boolean;
+  trigger: string;
+  action: string;
+  approval: string;
+  destination: string;
   status: "ACTIVE" | "PAUSED";
-  lastRunAt?: string;
+  lastRun: string;
   runsCount: number;
 }
+
+const initialRules: AutomationRule[] = [
+  {
+    id: "rule_cve_alert",
+    name: "Critical Zero-Day Advisory Broadcast",
+    trigger: "New CVE or Threat Advisory Ingested",
+    action: "Generate Technical Security Bulletin",
+    approval: "Strict Human Approval Gate",
+    destination: "LinkedIn (API 202608) + X Thread",
+    status: "ACTIVE",
+    lastRun: "45 mins ago",
+    runsCount: 18,
+  },
+  {
+    id: "rule_ai_digest",
+    name: "Enterprise Research Paper Distillation",
+    trigger: "Research PDF or Whitepaper Uploaded",
+    action: "Create 1-Page Executive Briefing",
+    approval: "Automated Zero-Trust Gate",
+    destination: "Executive Portal + Slack Digest",
+    status: "ACTIVE",
+    lastRun: "3 hours ago",
+    runsCount: 32,
+  },
+  {
+    id: "rule_news_flow",
+    name: "Industry News to LinkedIn Creator Post",
+    trigger: "Tech & Market News URL Received",
+    action: "Extract Key Takeaways & Hook",
+    approval: "Ask me before publishing",
+    destination: "LinkedIn (API 202608)",
+    status: "PAUSED",
+    lastRun: "2 days ago",
+    runsCount: 11,
+  },
+];
 
 export default function UserAutomationsPage() {
   const { userProfile } = useAuth();
   const { success, info } = useToast();
+  const [rules, setRules] = useState<AutomationRule[]>(initialRules);
 
-  const [rules, setRules] = useState<AutomationRule[]>([
-    {
-      id: "rule_cve_alert",
-      name: "Critical Zero-Day Advisory Broadcast",
-      triggerTopic: "Cybersecurity Advisories & High-Severity CVEs",
-      outputFormat: "LinkedIn Post + X Thread",
-      requiresApproval: true,
-      status: "ACTIVE",
-      lastRunAt: "2 hours ago",
-      runsCount: 14,
-    },
-    {
-      id: "rule_ai_brief",
-      name: "Daily AI Compute & Policy Digest",
-      triggerTopic: "AI Infrastructure & Regulatory Announcements",
-      outputFormat: "Executive Summary",
-      requiresApproval: true,
-      status: "ACTIVE",
-      lastRunAt: "Yesterday",
-      runsCount: 28,
-    },
-  ]);
-
-  const [isCreating, setIsCreating] = useState(false);
-  const [newTopic, setNewTopic] = useState("Critical Vulnerabilities & Cloud Security");
-  const [newFormat, setNewFormat] = useState("LINKEDIN_POST");
-  const [requireApproval, setRequireApproval] = useState(true);
-
-  const handleToggle = (id: string) => {
+  const handleToggleStatus = (id: string) => {
     setRules((prev) =>
       prev.map((r) => {
         if (r.id === id) {
-          const nextStatus = r.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-          if (nextStatus === "ACTIVE") {
-            success(`Automation resumed`, `"${r.name}" is now monitoring active event streams.`);
+          const next = r.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+          if (next === "ACTIVE") {
+            success("Automation Resumed", `"${r.name}" is actively listening.`);
           } else {
-            info(`Automation paused`, `"${r.name}" has been placed on hold.`);
+            info("Automation Paused", `"${r.name}" has been placed on hold.`);
           }
-          return { ...r, status: nextStatus };
+          return { ...r, status: next };
         }
         return r;
       })
     );
   };
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newRule: AutomationRule = {
+  const handleDuplicate = (rule: AutomationRule) => {
+    const dup: AutomationRule = {
+      ...rule,
       id: `rule_${Date.now()}`,
-      name: `Autonomous Pipeline for ${newTopic.slice(0, 24)}`,
-      triggerTopic: newTopic,
-      outputFormat: newFormat === "LINKEDIN_POST" ? "LinkedIn Post" : "X Thread",
-      requiresApproval: requireApproval,
-      status: "ACTIVE",
+      name: `${rule.name} (Copy)`,
+      status: "PAUSED",
       runsCount: 0,
+      lastRun: "Never",
     };
-    setRules((prev) => [newRule, ...prev]);
-    setIsCreating(false);
-    success("Automation created", "Visual workflow active and waiting for incoming triggers.");
+    setRules([dup, ...rules]);
+    success("Automation Duplicated", `Created a copy of "${rule.name}".`);
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              Autonomous Intelligence
-            </span>
-            <span className="text-xs text-slate-400 font-medium">• Visual Event-Driven Pipelines</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-1">
-            Automations Builder
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Tell NEXUS what to listen for and what communication assets to synthesize automatically upon human review.
-          </p>
-        </div>
+    <div className="space-y-8 max-w-5xl mx-auto pb-12">
+      {/* Header */}
+      <PageHeader
+        breadcrumbs={[{ label: "Home", href: "/app" }, { label: "Automations" }]}
+        title="Let NEXUS handle repetitive work."
+        description="Configure natural language automation workflows that ingest sources, analyze key takeaways, screen for prompt injections, and route through human approval gates."
+        primaryAction={
+          <Link href="/app/automations/builder">
+            <Button variant="brand" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+              Create automation
+            </Button>
+          </Link>
+        }
+      />
 
-        <Button
-          variant="brand"
-          size="sm"
-          onClick={() => setIsCreating(true)}
-          leftIcon={<Plus className="w-4 h-4" />}
-        >
-          New Automation
-        </Button>
+      {/* Visual Workflow Canvas Topology Banner */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-bold text-slate-900">Standard Autonomous Pipeline Topology</h3>
+            <p className="text-xs text-slate-500">Every workflow follows the zero-loss 5-stage guarantee</p>
+          </div>
+          <span className="text-[11px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+            n8n Cloud Active
+          </span>
+        </div>
+        <WorkflowCanvas />
       </div>
 
-      {/* Visual Canvas Highlight */}
-      <WorkflowCanvas />
-
-      {/* Builder Modal / Expandable Creator */}
-      {isCreating && (
-        <div className="bg-white border-2 border-blue-500/40 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-in zoom-in-95 duration-200">
-          <div className="border-b border-slate-100 pb-4">
-            <h3 className="text-base font-bold text-slate-900">Configure Autonomous Pipeline</h3>
-            <p className="text-xs text-slate-500">Describe the trigger condition and desired synthesis format.</p>
-          </div>
-
-          <form onSubmit={handleCreate} className="space-y-6">
-            {/* Plain English Sentence Builder */}
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 text-xs">
-              <p className="font-semibold text-slate-800 text-sm">What should NEXUS do automatically?</p>
-
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="font-bold text-blue-600 shrink-0">WHEN I RECEIVE:</span>
-                  <input
-                    type="text"
-                    value={newTopic}
-                    onChange={(e) => setNewTopic(e.target.value)}
-                    placeholder="e.g. Critical CVEs, AI Regulatory Updates, Cloud Breaches"
-                    className="flex-1 p-2 rounded-lg bg-white border border-slate-200 text-xs font-medium"
-                    required
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span className="font-bold text-indigo-600 shrink-0">THEN GENERATE:</span>
-                  <select
-                    value={newFormat}
-                    onChange={(e) => setNewFormat(e.target.value)}
-                    className="p-2 rounded-lg bg-white border border-slate-200 text-xs font-medium"
-                  >
-                    <option value="LINKEDIN_POST">LinkedIn Post (API 202608)</option>
-                    <option value="X_THREAD">X Thread (280 characters)</option>
-                    <option value="EXECUTIVE_SUMMARY">Executive Advisory Brief</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                  <span className="font-bold text-emerald-600">COMPLIANCE GATE:</span>
-                  <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={requireApproval}
-                      onChange={(e) => setRequireApproval(e.target.checked)}
-                      className="rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Require explicit human compliance approval before publishing</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsCreating(false)}>
-                Cancel
-              </Button>
-              <Button variant="brand" size="sm" type="submit" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Activate Automation
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Existing Rules List */}
+      {/* Existing Automations List */}
       <div className="space-y-4">
-        <h3 className="text-base font-bold text-slate-900 tracking-tight">Active Automation Pipelines</h3>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+            Your Active Workflows ({rules.length})
+          </h2>
+          <Link href="/app/automations/builder" className="text-xs font-semibold text-blue-600 hover:underline">
+            Open Flow Builder →
+          </Link>
+        </div>
 
-        <div className="grid grid-cols-1 gap-4">
-          {rules.map((rule) => {
-            const isActive = rule.status === "ACTIVE";
-            return (
-              <div
-                key={rule.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div className="space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${
-                        isActive
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-slate-100 text-slate-600 border-slate-200"
+        {rules.length === 0 ? (
+          <EmptyState
+            icon={Workflow}
+            title="No automations yet."
+            description="Automate your first repetitive workflow. Ingest sources and generate social content autonomously."
+            actionLabel="Create automation"
+            onAction={() => (window.location.href = "/app/automations/builder")}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rules.map((rule) => {
+              const isActive = rule.status === "ACTIVE";
+              return (
+                <div
+                  key={rule.id}
+                  className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={isActive ? "success" : "neutral"} size="sm">
+                        {rule.status}
+                      </Badge>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {rule.runsCount} runs
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{rule.name}</h3>
+
+                    <div className="space-y-1.5 text-xs text-slate-600">
+                      <p className="leading-snug">
+                        <strong className="text-slate-800">When:</strong> {rule.trigger}
+                      </p>
+                      <p className="leading-snug">
+                        <strong className="text-slate-800">Then:</strong> {rule.action}
+                      </p>
+                      <p className="leading-snug">
+                        <strong className="text-slate-800">Gate:</strong> {rule.approval}
+                      </p>
+                      <p className="leading-snug">
+                        <strong className="text-slate-800">Channel:</strong> {rule.destination}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(rule.id)}
+                      className={`font-semibold transition-colors ${
+                        isActive ? "text-amber-600 hover:text-amber-700" : "text-emerald-600 hover:text-emerald-700"
                       }`}
                     >
-                      {rule.status}
-                    </span>
-                    <span className="text-xs text-slate-400 font-medium">• {rule.runsCount} executions</span>
-                  </div>
+                      {isActive ? "Pause" : "Resume"}
+                    </button>
 
-                  <h4 className="text-sm font-bold text-slate-900 truncate">{rule.name}</h4>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 pt-0.5">
-                    <span className="flex items-center gap-1 text-slate-700 font-medium">
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      {rule.triggerTopic}
-                    </span>
-                    <span>➔</span>
-                    <span className="flex items-center gap-1 text-blue-700 font-medium">
-                      <Share2 className="w-3.5 h-3.5 text-blue-600" />
-                      {rule.outputFormat}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicate(rule)}
+                        className="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-50"
+                        title="Duplicate rule"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <Link href="/app/automations/builder" className="text-blue-600 hover:text-blue-700 font-medium">
+                        Edit
+                      </Link>
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => handleToggle(rule.id)}
-                    leftIcon={isActive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  >
-                    {isActive ? "Pause" : "Resume"}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

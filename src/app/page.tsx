@@ -56,16 +56,16 @@ export default function LandingPage() {
 
           <nav className="hidden md:flex items-center gap-8 text-xs font-medium text-slate-300">
             <a href="#pipeline" className="hover:text-white transition-colors">
-              Pipeline Architecture
+              Product
+            </a>
+            <a href="#how-it-works" className="hover:text-white transition-colors">
+              How it works
             </a>
             <a href="#security" className="hover:text-white transition-colors">
-              Zero-Trust Security
+              Security
             </a>
-            <a href="#channels" className="hover:text-white transition-colors">
-              Distribution Matrix
-            </a>
-            <a href="#ledger" className="hover:text-white transition-colors">
-              Cryptographic Audit
+            <a href="#features" className="hover:text-white transition-colors">
+              Features
             </a>
           </nav>
 
@@ -73,19 +73,19 @@ export default function LandingPage() {
             {isAuthenticated ? (
               <Link href={destinationHref}>
                 <Button variant="brand" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                  {isAdmin ? "Admin Console" : "Open Workspace"}
+                  {isAdmin ? "Admin Console" : "Open NEXUS"}
                 </Button>
               </Link>
             ) : (
               <>
                 <Link href="/login" className="hidden sm:inline-block">
                   <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
-                    Sign In
+                    Sign in
                   </Button>
                 </Link>
-                <Link href="/signup">
+                <Link href="/login">
                   <Button variant="brand" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                    Get Started
+                    Open NEXUS
                   </Button>
                 </Link>
               </>
@@ -97,7 +97,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative z-10 pt-20 pb-16 md:pt-28 md:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center flex flex-col items-center">
         {/* Release Pill */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span>Active Production Release • LinkedIn API 202608 Verified</span>
         </div>
@@ -111,19 +111,19 @@ export default function LandingPage() {
         </h1>
 
         <p className="mt-6 text-sm sm:text-base md:text-lg text-slate-400 max-w-2xl leading-relaxed">
-          Securely turn complex technical documents, zero-day advisories, research papers, and incident reports into communication-ready artefacts across executive and public channels.
+          Turn complex information into secure, communication-ready content across every channel.
         </p>
 
         {/* CTA Button Group */}
         <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
-          <Link href={destinationHref}>
+          <Link href={isAuthenticated ? "/app/create" : "/login"}>
             <Button variant="brand" size="lg" className="w-full sm:w-auto px-8 shadow-lg shadow-blue-500/25" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Open NEXUS
+              Start creating
             </Button>
           </Link>
-          <a href="#pipeline">
+          <a href="#how-it-works">
             <Button variant="outline" size="lg" className="w-full sm:w-auto px-6 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-900">
-              Explore Architecture
+              Explore NEXUS
             </Button>
           </a>
         </div>
@@ -175,7 +175,7 @@ export default function LandingPage() {
       </section>
 
       {/* Split-View Interactive Transformation Showcase */}
-      <section className="relative z-10 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+      <section id="how-it-works" className="relative z-10 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 overflow-hidden shadow-2xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
             <div>
@@ -349,8 +349,8 @@ export default function LandingPage() {
       </section>
 
       {/* Feature Grid: Pillars of NEXUS AI */}
-      <section id="security" className="relative z-10 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <section id="features" className="relative z-10 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <div id="security" className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <Shield className="w-6 h-6" />

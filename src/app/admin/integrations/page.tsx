@@ -17,13 +17,14 @@ import {
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/ui/Icons";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/ToastProvider";
 
 interface IntegrationItem {
   id: string;
   name: string;
   category: "PUBLISHING" | "AUTOMATION" | "MESSAGING" | "INFRASTRUCTURE";
-  status: "CONNECTED" | "CONFIGURED" | "OPTIONAL";
+  status: "CONNECTED" | "CONFIGURED" | "OPTIONAL" | "NOT_CONNECTED";
   version?: string;
   details: string;
   account?: string;
@@ -55,11 +56,11 @@ const initialIntegrations: IntegrationItem[] = [
     id: "whatsapp",
     name: "Meta WhatsApp Cloud API",
     category: "MESSAGING",
-    status: "CONNECTED",
+    status: "NOT_CONNECTED",
     version: "Graph v21.0",
-    details: "Two-way conversational ingestion of news URLs and real-time distribution alerts.",
-    account: "WABA ID: 1083920194812",
-    verified: true,
+    details: "Two-way conversational ingestion of news URLs and real-time distribution alerts. Awaiting Meta Business verification & system user access token.",
+    account: "Not connected",
+    verified: false,
   },
   {
     id: "gemini",
@@ -109,22 +110,20 @@ export default function AdminIntegrationsPage() {
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <Plug className="w-6 h-6 text-blue-500" />
-              Enterprise Integration Control Hub
-            </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
-              Zero-Trust Token Storage
-            </span>
-          </div>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Manage authenticated third-party connectors, social API versions, webhook secret handshakes, and identity providers.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Distribution", href: "/admin/publishing" },
+          { label: "Integrations" },
+        ]}
+        title="Enterprise Integration Control Hub"
+        description="Manage authenticated third-party connectors, social API versions, webhook secret handshakes, and identity providers."
+        badge={
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+            Zero-Trust Token Storage
+          </span>
+        }
+      />
 
       {/* Featured Production Verified: LinkedIn API 202608 */}
       <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 border border-blue-800/50 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -184,10 +183,12 @@ export default function AdminIntegrationsPage() {
                   className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                     item.status === "CONNECTED"
                       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      : item.status === "NOT_CONNECTED"
+                      ? "bg-slate-800 text-slate-400 border border-slate-700"
                       : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                   }`}
                 >
-                  {item.status}
+                  {item.status === "NOT_CONNECTED" ? "NOT CONNECTED" : item.status}
                 </span>
               </div>
 

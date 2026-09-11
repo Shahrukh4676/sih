@@ -243,8 +243,8 @@ export default function UserProfilePage() {
                 <p className="text-slate-500 text-[11px]">Interactive approvals &amp; conversational transformation</p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-semibold text-[11px]">
-              Ready to Pair (NX-*)
+            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-semibold text-[11px]">
+              Not connected
             </span>
           </div>
         </div>

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -177,6 +178,13 @@ export default function ManualCreatePage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16">
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/app" },
+          { label: "Create Studio" },
+        ]}
+      />
+
       {/* Studio Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -511,6 +519,17 @@ export default function ManualCreatePage() {
               >
                 Submit for Approval
               </Button>
+              {createdContentId && (
+                <Link href={`/app/content/${createdContentId}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<Eye className="w-3.5 h-3.5" />}
+                  >
+                    View Details
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
