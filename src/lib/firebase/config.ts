@@ -5,11 +5,18 @@
 // - Initializes the Firebase Web SDK cleanly using environment variables.
 // - Safe guards against multiple initializations and SSR environments.
 // - Client-facing API key is scoped via Firebase Rules and Google Cloud App Check.
+// - Offline persistence enabled: Firestore uses IndexedDB cache when unreachable.
 // ==============================================================================
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
@@ -27,7 +34,28 @@ const firebaseConfig = {
 const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
+
+// Initialize Firestore with offline persistence (IndexedDB cache).
+// When the backend is unreachable, reads serve from local cache instead of
+// throwing "client is offline" errors. Mutations are queued and synced when
+// connectivity resumes.
+let db: Firestore;
+try {
+  if (getApps().length > 1 || typeof window === "undefined") {
+    // SSR or already initialised — use plain getFirestore
+    db = getFirestore(app);
+  } else {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({ forceOwnership: true }),
+      }),
+    });
+  }
+} catch {
+  // Already initialised with a different config — fall back gracefully
+  db = getFirestore(app);
+}
+
 const storage: FirebaseStorage = getStorage(app);
 
 // Analytics runs only on client browser

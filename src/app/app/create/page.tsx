@@ -127,9 +127,15 @@ export default function ManualCreatePage() {
       }
 
       const data = await res.json();
-      setGeneratedTitle(data.title || "Synthesized Advisory Artefact");
-      setGeneratedOutput(data.content || data.variant?.content || "");
-      setCreatedContentId(data.contentId || data.id || null);
+      setGeneratedTitle(data.title || data.result?.title || "Synthesized Advisory Artefact");
+      setGeneratedOutput(
+        data.generatedText ||
+        data.result?.content ||
+        data.content?.content ||
+        data.content?.currentVersion?.body ||
+        ""
+      );
+      setCreatedContentId(data.contentId || data.id || data.content?.id || null);
 
       setTimeout(() => {
         setStep(4);
