@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion } from "motion/react";
 import { Breadcrumbs, BreadcrumbItem } from "./Breadcrumbs";
 
 interface PageHeaderProps {
@@ -23,19 +24,24 @@ export function PageHeader({
   className = "",
 }: PageHeaderProps) {
   return (
-    <div className={`space-y-3 pb-6 border-b border-slate-200/80 dark:border-slate-800/80 ${className}`}>
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`space-y-3 pb-6 border-b border-slate-100 ${className}`}
+    >
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 truncate">
               {title}
             </h1>
             {badge && <div>{badge}</div>}
           </div>
           {description && (
-            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-3xl">
+            <p className="text-xs md:text-sm text-slate-500 leading-relaxed max-w-3xl">
               {description}
             </p>
           )}
@@ -48,6 +54,6 @@ export function PageHeader({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
