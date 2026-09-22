@@ -91,16 +91,16 @@ export async function submitApprovalDecision(
     const contentStatus = status === "APPROVED" ? "APPROVED" : status === "REJECTED" ? "REJECTED" : "DRAFT";
     await updateContentStatus(contentId, contentStatus);
 
-    // If approved, trigger n8n orchestration asynchronously (non-blocking)
+    // If approved, trigger internal automation orchestration asynchronously (non-blocking)
     if (status === "APPROVED") {
       try {
-        AutomationService.triggerApprovedContentWorkflow({
+        AutomationService.dispatchApprovedContent({
           contentId,
           organizationId: orgId,
           userId: reviewerId,
           versionId: content?.version || 1,
           channel: "linkedin"
-        }).catch((err) => console.error("[Approvals Service] n8n trigger error:", err));
+        }).catch((err) => console.error("[Approvals Service] Internal automation dispatch error:", err));
       } catch (triggerErr) {
         console.warn("[Approvals Service] Warning fetching approval record for trigger:", triggerErr);
       }

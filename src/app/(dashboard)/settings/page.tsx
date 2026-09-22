@@ -1132,21 +1132,21 @@ function SettingsContent() {
                   </Link>
                 </div>
 
-                {/* n8n Cloud Orchestration (Phase 7) */}
-                <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                {/* Native Automation Orchestration */}
+                <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <Workflow className="w-4 h-4 text-purple-600" />
-                      <span className="font-bold text-slate-900 text-sm">n8n Cloud Orchestration Workflow</span>
-                      <Badge variant="verified" size="sm">Phase 7 Connected</Badge>
+                      <Workflow className="w-4 h-4 text-blue-600" />
+                      <span className="font-bold text-slate-900 text-sm">NEXUS Internal Orchestration Engine</span>
+                      <Badge variant="verified" size="sm">Active (In-Process)</Badge>
                     </div>
                     <p className="text-[11px] text-slate-600">
-                      Workflow <code>uunidN8XWaIcA5xY</code> on <code>shahrukh24.app.n8n.cloud</code> coordinates multi-channel distribution.
+                      Native state machine coordinates human approval, security gates, and direct LinkedIn Posts API publishing.
                     </p>
                   </div>
                   <Link href="/automations">
-                    <Button variant="outline" size="sm" className="shrink-0 text-purple-700 hover:bg-purple-100/50">
-                      View Workflows
+                    <Button variant="outline" size="sm" className="shrink-0 text-blue-700 hover:bg-blue-100/50">
+                      View Engine
                       <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
                     </Button>
                   </Link>

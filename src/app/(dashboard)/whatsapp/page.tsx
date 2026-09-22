@@ -170,19 +170,21 @@ export default function WhatsAppCommandCenterPage() {
 
   // Verify and link
   const handleVerifyLink = async () => {
-    if (!manualPhone || !manualCode) return;
+    const codeToVerify = (manualCode || linkingCode || "").trim().toUpperCase();
+    if (!manualPhone || !codeToVerify) return;
     try {
       setVerifyingLink(true);
       setLinkError(null);
       const res = await fetch("/api/whatsapp/link/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: manualPhone, code: manualCode }),
+        body: JSON.stringify({ phoneNumber: manualPhone, code: codeToVerify }),
       });
       const data = await res.json();
       if (data.success) {
         setLinkSuccess(true);
         setLinkingCode(null);
+        setManualCode("");
         setSimPhoneNumber(manualPhone.replace(/[^\d]/g, ""));
         fetchStatusAndData();
         setTimeout(() => setLinkSuccess(false), 4000);
@@ -583,8 +585,8 @@ export default function WhatsAppCommandCenterPage() {
                   <input
                     type="text"
                     value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    placeholder="Code (NX-...)"
+                    onChange={(e) => setManualCode(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+                    placeholder={linkingCode || "Code (NX-...)"}
                     className="text-xs font-mono uppercase border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800"
                   />
                 </div>
@@ -599,7 +601,7 @@ export default function WhatsAppCommandCenterPage() {
                   size="sm"
                   className="w-full text-xs"
                   onClick={handleVerifyLink}
-                  disabled={verifyingLink || !manualCode || !manualPhone}
+                  disabled={verifyingLink || (!manualCode && !linkingCode) || !manualPhone}
                 >
                   {verifyingLink ? "Verifying..." : "Verify & Activate Device"}
                 </Button>

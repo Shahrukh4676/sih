@@ -63,7 +63,7 @@ export default function AdminOverviewPage() {
   const systemHealth = [
     { name: "Google Gemini AI", status: "Operational", latency: "210ms", type: "Transform Engine" },
     { name: "LinkedIn REST API", status: "Active (202608)", latency: "140ms", type: "Distribution Channel" },
-    { name: "n8n Cloud Engine", status: "Operational", latency: "85ms", type: "Automation Orchestrator" },
+    { name: "NEXUS Orchestrator", status: "Operational", latency: "15ms", type: "Internal Engine" },
     { name: "Zero-Trust Scanner", status: "Monitoring", latency: "12ms", type: "Security Gateway" },
     { name: "SHA-256 Ledger", status: "Verified", latency: "4ms", type: "Audit Integrity" },
   ];
@@ -159,7 +159,7 @@ export default function AdminOverviewPage() {
               99.4%
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-1">n8n Cloud Webhooks</span>
+          <span className="text-[10px] text-slate-400 mt-1">Internal Orchestration</span>
         </div>
 
         <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">

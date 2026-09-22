@@ -5,42 +5,42 @@
   --font-geist-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Surface & Canvas Tokens */
-  --bg-canvas: #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-subtle: #f1f5f9;
-  --bg-muted: #e2e8f0;
+  /* Surface & Canvas Tokens (Studio Spatial Spec) */
+  --bg-canvas: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F4F4F6;
+  --bg-muted: #E5E7EB;
 
   /* Border Tokens */
-  --border-subtle: #e2e8f0;
-  --border-default: #cbd5e1;
-  --border-strong: #94a3b8;
+  --border-subtle: #F1F3F5;
+  --border-default: #E5E7EB;
+  --border-strong: #94A3B8;
 
   /* Typography / Text Tokens */
-  --text-main: #0f172a;
-  --text-body: #334155;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --text-main: #111827;
+  --text-body: #374151;
+  --text-muted: #64748B;
+  --text-subtle: #94A3B8;
 
-  /* Brand Accents */
-  --brand-primary: #2563eb;
-  --brand-primary-hover: #1d4ed8;
-  --brand-secondary: #4f46e5;
-  --accent-cyan: #0284c7;
-  --accent-violet: #7c3aed;
+  /* Brand Accents from design.md */
+  --brand-primary: #111827;
+  --brand-secondary: #2640D9;
+  --accent-tertiary: #8A66E6;
+  --accent-cyan: #0284C7;
+  --accent-emerald: #10B981;
 
   /* Semantic State Colors */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #0284c7;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #2640D9;
 
   /* Shadows */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(17, 24, 39, 0.05), 0 2px 4px -2px rgba(17, 24, 39, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(38, 64, 217, 0.08), 0 4px 6px -4px rgba(17, 24, 39, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(38, 64, 217, 0.12), 0 8px 10px -6px rgba(17, 24, 39, 0.04);
 }
 
 body {
@@ -58,14 +58,14 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #F1F5F9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #94A3B8;
 }
 
 /* Subtle modern SaaS card container */
@@ -201,6 +201,78 @@ body {
 
 .glow-success {
   box-shadow: 0 0 20px -4px rgba(16, 185, 129, 0.25);
+}
+
+/* Studio — Spatial Interfaces Depth & Surface Tokens */
+.spatial-shell {
+  position: relative;
+  padding: 1.2px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(17, 24, 39, 0.85) 0px,
+    rgba(17, 24, 39, 0.85) 1px,
+    rgba(38, 64, 217, 0.25) 1px,
+    rgba(38, 64, 217, 0.25) 48px
+  );
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px -15px rgba(38, 64, 217, 0.15), 0 10px 30px -10px rgba(17, 24, 39, 0.08);
+}
+
+.spatial-surface {
+  background: #111827;
+  color: #FFFFFF;
+  border-radius: calc(1.5rem - 1.2px);
+  border: 0.8px solid rgba(255, 255, 255, 0.08);
+}
+
+.spatial-card-light {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 0.8px solid #E5E7EB;
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 20px -2px rgba(17, 24, 39, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.spatial-card-light:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 12px 30px -4px rgba(38, 64, 217, 0.08), 0 4px 12px -2px rgba(17, 24, 39, 0.04);
+  transform: translateY(-2px);
+}
+
+.spatial-glow-accent {
+  box-shadow: 0 0 20px 0px rgba(38, 64, 217, 0.35);
+}
+
+.spatial-pill-btn {
+  background: #111827;
+  color: #FFFFFF;
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 0.8px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px 0 rgba(17, 24, 39, 0.15);
+}
+
+.spatial-pill-btn:hover {
+  background: #1F2937;
+  box-shadow: 0 6px 20px rgba(38, 64, 217, 0.25);
+  transform: translateY(-1px);
+}
+
+.spatial-pill-outline {
+  background: #FFFFFF;
+  color: #111827;
+  border-radius: 9999px;
+  border: 0.8px solid #E5E7EB;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.spatial-pill-outline:hover {
+  background: #F9FAFB;
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
 }
 
 /* Respect user reduced-motion preferences */

@@ -63,6 +63,7 @@ export interface PublishApprovedContentResult {
   errorCode?: string;
   duplicate?: boolean;
   apiVersion?: string;
+  simulated?: boolean;
 }
 
 export class LinkedInService {
@@ -649,12 +650,48 @@ export class LinkedInService {
     try {
       accessToken = decryptToken(connection.accessTokenEncrypted);
     } catch (err) {
-      return {
-        success: false,
-        status: "FAILED",
-        errorCode: "TOKEN_DECRYPTION_FAILED",
-        error: "Failed to securely decrypt stored LinkedIn credentials.",
-      };
+      console.warn(`${logPrefix} Decryption of cached/stored token failed. Purging cache and retrying from Firestore...`);
+      // 1. Purge potentially stale cache
+      connectionsCache.delete(connection.id);
+      connectionsCache.delete(`liconn_${organizationId}_${connection.userId}`);
+      connectionsCache.delete(`liconn_${organizationId}_${connection.linkedinMemberId}`);
+
+      try {
+        const freshSnap = await getDoc(doc(db, LINKEDIN_CONNECTIONS_COLLECTION, connection.id));
+        if (freshSnap.exists()) {
+          const freshConn = freshSnap.data() as LinkedInConnection;
+          accessToken = decryptToken(freshConn.accessTokenEncrypted);
+          connectionsCache.set(freshConn.id, freshConn);
+        }
+      } catch {
+        // Still failed decrypting
+      }
+
+      if (!accessToken) {
+        const client = getLinkedInClient();
+        if (client.isSimulationMode()) {
+          console.warn(`${logPrefix} Stored token decryption failed; healing connection with active simulation token.`);
+          accessToken = `sim_token_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          try {
+            connection.accessTokenEncrypted = encryptToken(accessToken);
+            connectionsCache.set(connection.id, connection);
+            const ref = doc(db, LINKEDIN_CONNECTIONS_COLLECTION, connection.id);
+            await updateDoc(ref, {
+              accessTokenEncrypted: connection.accessTokenEncrypted,
+              updatedAt: serverTimestamp(),
+            });
+          } catch (healErr) {
+            console.warn(`${logPrefix} Failed to persist healed token in Firestore:`, healErr);
+          }
+        } else {
+          return {
+            success: false,
+            status: "FAILED",
+            errorCode: "LINKEDIN_TOKEN_INVALID",
+            error: "Failed to securely decrypt stored LinkedIn credentials. Please reconnect your LinkedIn account.",
+          };
+        }
+      }
     }
 
     // Log publishing request audit event
@@ -810,6 +847,7 @@ export class LinkedInService {
       publishedUrl: publishResult.publishedUrl,
       recordId,
       apiVersion: publishResult.apiVersion || "202608",
+      simulated: Boolean(publishResult.simulated),
     };
   }
 

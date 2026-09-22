@@ -147,7 +147,7 @@ export default function AdminAutomationsPage() {
       };
       setLogs([newLog, ...logs]);
       setDispatching(null);
-      success("Automation Dispatched", `Dispatched flow "${flow.name}" via n8n Cloud Webhook.`);
+      success("Automation Dispatched", `Dispatched flow "${flow.name}" via Native Internal Orchestrator.`);
     }, 1200);
   };
 
@@ -164,7 +164,7 @@ export default function AdminAutomationsPage() {
         description="Orchestrate end-to-end ingestion, AI transformation, zero-trust security clearance, and multi-channel publication without human toil."
         badge={
           <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">
-            n8n Cloud Orchestration
+            Internal Orchestration
           </span>
         }
         primaryAction={
@@ -172,7 +172,7 @@ export default function AdminAutomationsPage() {
             variant="primary"
             size="sm"
             className="bg-cyan-600 hover:bg-cyan-500"
-            onClick={() => info("Custom Workflow", "Enterprise n8n webhook nodes can be provisioned in Settings.")}
+            onClick={() => info("Custom Workflow", "Enterprise pipeline nodes can be provisioned in Settings.")}
           >
             <Plus className="w-4 h-4 mr-1.5" />
             Create Workflow Node

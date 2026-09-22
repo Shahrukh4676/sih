@@ -171,7 +171,7 @@ export default function ManualCreatePage() {
       });
 
       if (res.ok) {
-        success("Submitted for compliance signoff", "Artefact routed to approval queue and n8n webhook.");
+        success("Submitted for compliance signoff", "Artefact routed to approval queue and internal orchestration pipeline.");
       } else {
         throw new Error("Failed to submit approval.");
       }

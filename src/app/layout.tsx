@@ -21,7 +21,7 @@ export default function RootLayout({
       lang="en"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col bg-[#f8fafc] text-slate-900 selection:bg-blue-100 selection:text-blue-900">
+      <body className="min-h-full flex flex-col bg-[#FAFAFA] text-[#111827] selection:bg-[#2640D9] selection:text-white">
         <AuthProvider>
           <ToastProvider>
             {children}

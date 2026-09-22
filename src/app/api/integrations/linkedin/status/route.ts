@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LinkedInService } from "@/lib/services/linkedin.service";
+import { getLinkedInClient } from "@/lib/integrations/linkedin/linkedin-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,11 +19,13 @@ export async function GET(req: NextRequest) {
       undefined;
 
     const connection = await LinkedInService.getLinkedInConnection(organizationId, userId);
+    const isSimulated = getLinkedInClient().isSimulationMode();
 
     if (!connection || connection.status !== "CONNECTED") {
       const notConnectedRes = NextResponse.json({
         connected: false,
         status: connection ? connection.status : "NOT_CONNECTED",
+        simulated: isSimulated,
       });
       notConnectedRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       notConnectedRes.headers.set("Pragma", "no-cache");
@@ -33,6 +36,7 @@ export async function GET(req: NextRequest) {
     const connectedRes = NextResponse.json({
       connected: true,
       status: "CONNECTED",
+      simulated: isSimulated,
       member: {
         id: connection.linkedinMemberId,
         urn: connection.linkedinMemberUrn,

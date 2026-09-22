@@ -135,7 +135,7 @@ export default function UserAutomationsPage() {
             <p className="text-xs text-slate-500">Every workflow follows the zero-loss 5-stage guarantee</p>
           </div>
           <span className="text-[11px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
-            n8n Cloud Active
+            Internal Orchestration Active
           </span>
         </div>
         <WorkflowCanvas />

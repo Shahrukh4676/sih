@@ -324,7 +324,7 @@ export default function AutomationsPage() {
         }),
       });
 
-      setActionFeedback(`Content "${triggerContentId}" approved and dispatched to n8n Cloud webhook!`);
+      setActionFeedback(`Content "${triggerContentId}" approved and dispatched to native LinkedIn orchestrator!`);
       setIsTriggerModalOpen(false);
       await fetchExecutions();
       await fetchStatus();
@@ -353,22 +353,19 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6 pb-12">
       {/* 1. Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-              <Workflow className="w-3.5 h-3.5" />
-              Automation Engine
-            </span>
-            <span className="text-xs text-slate-400">• Phase 10 Builder &amp; Orchestration</span>
+            <Badge variant="brand" size="sm">NEXUS Automation</Badge>
+            <span className="text-xs text-slate-400">• Native Orchestration Engine</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Enterprise Automation Builder
+            NEXUS Automation
           </h1>
           <p className="text-xs md:text-sm text-slate-500 mt-1">
-            Configure automated multi-step pipelines: Trigger → Conditions → AI Action → Human Approval → n8n Multi-Channel Distribution.
+            Configure automated multi-step pipelines: Trigger → Conditions → AI Action → Human Approval → LinkedIn Distribution.
           </p>
         </div>
 
@@ -401,7 +398,7 @@ export default function AutomationsPage() {
               onClick={() => setIsTriggerModalOpen(true)}
               leftIcon={<Zap className="w-4 h-4" />}
             >
-              Test n8n Trigger
+              Test Trigger
             </Button>
           )}
         </div>
@@ -436,7 +433,7 @@ export default function AutomationsPage() {
           }`}
         >
           <Activity className="w-4 h-4" />
-          Execution Stream &amp; n8n Cloud ({executions.length})
+          Execution Stream ({executions.length})
         </button>
       </div>
 
@@ -575,40 +572,45 @@ export default function AutomationsPage() {
       )}
 
       {/* ===================================================================== */}
-      {/* TAB 2: LIVE EXECUTION STREAM & n8n STATUS                             */}
+      {/* TAB 2: LIVE EXECUTION STREAM & NATIVE ORCHESTRATION                   */}
       {/* ===================================================================== */}
       {activeTab === "EXECUTIONS" && (
         <div className="space-y-6">
-          {/* n8n Cloud Active Workflow Status Card */}
-          <Card className="border-blue-200 bg-gradient-to-br from-white via-blue-50/20 to-slate-50">
+          {/* Native Orchestrator Status Card */}
+          <Card className="border-blue-200 bg-gradient-to-br from-white via-blue-50/20 to-slate-50 overflow-hidden">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
                   <CardTitle className="text-base font-bold text-slate-900">
-                    {workflowInfo?.workflow?.name || "NEXUS — Approved Content Orchestration"}
+                    NEXUS Automation
                   </CardTitle>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Active Cloud Orchestrator • ID: <code className="font-mono text-slate-700 bg-slate-100 px-1 py-0.5 rounded text-[11px]">{workflowInfo?.workflow?.id || "uunidN8XWaIcA5xY"}</code>
+                  Engine: <strong className="text-slate-800 font-semibold">NEXUS Internal Orchestrator</strong> • Status: <span className="text-emerald-600 font-semibold font-mono text-xs">ACTIVE</span>
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <Badge variant="verified" dot size="sm">
-                  CONNECTED (Cloud Webhook)
+                  ACTIVE (Internal Orchestration)
                 </Badge>
-                <a
-                  href="https://shahrukh24.app.n8n.cloud"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-blue-600 hover:border-blue-300 transition text-xs inline-flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Open n8n</span>
-                </a>
               </div>
             </CardHeader>
+
+            {/* Pipeline: Approval → Security → Distribution → LinkedIn */}
+            <div className="px-6 py-3 bg-blue-50/40 border-b border-slate-100">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Active Pipeline</div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-700">
+                <span className="px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-2xs text-blue-700 font-semibold">Approval</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-2xs text-indigo-700 font-semibold">Security</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-2xs text-purple-700 font-semibold">Distribution</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="px-2.5 py-1 rounded-md bg-white border border-blue-200 shadow-2xs text-[#0A66C2] font-semibold">LinkedIn</span>
+              </div>
+            </div>
 
             <CardContent className="pt-4 space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -763,7 +765,7 @@ export default function AutomationsPage() {
               onChange={(e) => setActionType(e.target.value as any)}
               className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
-              <option value="TRIGGER_N8N">Dispatch Approved Content to n8n Cloud Orchestrator</option>
+              <option value="TRIGGER_N8N">Dispatch Approved Content to Native Orchestrator</option>
               <option value="GENERATE_TRANSFORMATION">AI Transform into Publication Artefact</option>
               <option value="NOTIFY_WHATSAPP">Send Alert to Executive WhatsApp Group</option>
               <option value="RUN_SECURITY_VALIDATION">Deep Security Scan &amp; Vulnerability Check</option>
@@ -771,27 +773,33 @@ export default function AutomationsPage() {
           </div>
 
           {/* Governance Flags */}
-          <div className="space-y-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="font-semibold text-slate-700">4. Governance &amp; Security Controls:</span>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <label className="font-semibold text-slate-700 block">4. Enterprise Governance Gates:</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={approvalRequired}
                   onChange={(e) => setApprovalRequired(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-slate-800">Require Human Compliance Sign-off (Mandatory Human-in-the-Loop)</span>
+                <div className="text-xs">
+                  <div className="font-semibold text-slate-900">Require Human Approval</div>
+                  <div className="text-[10px] text-slate-500">Must pass review before dispatch</div>
+                </div>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={securityCheckRequired}
                   onChange={(e) => setSecurityCheckRequired(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-slate-800">Automated DLP &amp; Credential Scan Verification</span>
+                <div className="text-xs">
+                  <div className="font-semibold text-slate-900">Security &amp; DLP Gate</div>
+                  <div className="text-[10px] text-slate-500">Automated hallucination/leak scan</div>
+                </div>
               </label>
             </div>
           </div>
@@ -807,12 +815,12 @@ export default function AutomationsPage() {
         </div>
       </Modal>
 
-      {/* MODAL: Test n8n Trigger */}
+      {/* MODAL: Test Native Trigger */}
       <Modal
         isOpen={isTriggerModalOpen}
         onClose={() => setIsTriggerModalOpen(false)}
-        title="Test n8n Orchestration Trigger"
-        description="Emulates approved content transition to dispatch a signed webhook payload to n8n Cloud."
+        title="Test Orchestration Trigger"
+        description="Emulates approved content transition to dispatch through the native orchestration pipeline."
       >
         <div className="space-y-4">
           <Input
@@ -845,7 +853,7 @@ export default function AutomationsPage() {
               disabled={triggering || !triggerContentId.trim()}
               leftIcon={<Zap className="w-3.5 h-3.5" />}
             >
-              {triggering ? "Dispatching..." : "Dispatch to n8n Webhook"}
+              {triggering ? "Dispatching..." : "Dispatch to Orchestrator"}
             </Button>
           </div>
         </div>

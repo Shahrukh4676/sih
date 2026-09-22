@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getN8nClient } from "@/lib/automation/n8n-client";
 import { AutomationService } from "@/lib/services/automation.service";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +6,6 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const n8nClient = getN8nClient();
     const orgId =
       req.headers.get("x-organization-id") ||
       req.nextUrl.searchParams.get("organizationId") ||
@@ -23,21 +21,28 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      engine: "n8n-enterprise-orchestrator",
+      engine: "nexus-internal-orchestrator",
+      status: "ACTIVE",
+      pipeline: [
+        "Human Approval",
+        "Security Clearance",
+        "Idempotency Gate",
+        "LinkedIn Posts API 202608",
+      ],
       workflow: {
-        id: n8nClient.getWorkflowId(),
-        name: n8nClient.getWorkflowName(),
-        cloudBaseUrl: n8nClient.getBaseUrl(),
-        webhookUrl: n8nClient.getWebhookUrl(),
-        isConfigured: n8nClient.isConfigured(),
-        isSimulationMode: n8nClient.isSimulationMode(),
+        id: "nexus-native-flow",
+        name: "NEXUS Native Orchestrator",
+        mode: "in-process",
+        isConfigured: true,
+        channel: "linkedin",
       },
       stats: counts,
       timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errObj = err as Error;
     return NextResponse.json(
-      { success: false, error: err?.message || "Failed to retrieve automation status" },
+      { success: false, error: errObj?.message || "Failed to retrieve automation status" },
       { status: 500 }
     );
   }

@@ -15,6 +15,7 @@ import { getN8nClient, ApprovedContentTriggerPayload } from "../automation/n8n-c
 import { getContentById } from "./content.service";
 import { logAuditEvent } from "./audit.service";
 import { WhatsAppService } from "./whatsapp.service";
+import { LinkedInService } from "./linkedin.service";
 import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 
 export const AUTOMATION_EVENTS_COLLECTION = "automationEvents";
@@ -22,12 +23,35 @@ export const AUTOMATION_EVENTS_COLLECTION = "automationEvents";
 // Resilient memory cache for instant event lookup, test stability, and deduplication
 const eventsCache = new Map<string, AutomationEvent>();
 
+export interface DispatchApprovedContentOptions {
+  contentId: string;
+  organizationId: string;
+  userId: string;
+  versionId?: string | number;
+  channel?: string;
+  securityDecision?: string;
+  overrideContent?: string;
+}
+
+export interface DispatchApprovedContentResult {
+  success: boolean;
+  eventId?: string;
+  duplicate?: boolean;
+  error?: string;
+  status?: AutomationEventStatus;
+  publishedUrl?: string;
+  externalPostId?: string;
+  event?: AutomationEvent;
+}
+
 export interface TriggerApprovedWorkflowOptions {
   contentId: string;
   organizationId: string;
   userId: string;
   versionId?: string | number;
   channel?: string;
+  securityDecision?: string;
+  overrideContent?: string;
 }
 
 export interface CallbackPayload {
@@ -85,21 +109,25 @@ export class AutomationService {
   }
 
   /**
-   * Triggers the existing n8n Cloud workflow upon content approval.
-   * Enforces server-side authorization, tenant verification, and idempotency.
+   * Primary Provider-Neutral Orchestrator: Dispatches approved content to the appropriate channel (LinkedIn).
+   * Enforces server-side authorization, tenant verification, approval state, security clearance,
+   * idempotency, channel routing, persistence, and audit logging.
    */
-  public static async triggerApprovedContentWorkflow(
-    options: TriggerApprovedWorkflowOptions
-  ): Promise<{
-    success: boolean;
-    eventId?: string;
-    duplicate?: boolean;
-    error?: string;
-    event?: AutomationEvent;
-  }> {
+  public static async dispatchApprovedContent(
+    options: DispatchApprovedContentOptions
+  ): Promise<DispatchApprovedContentResult> {
     const { contentId, organizationId, userId, channel = "linkedin" } = options;
+    const normalizedChannel = channel.toLowerCase();
 
-    // 1. Validate content existence & ownership
+    // 1. Channel verification: Only 'linkedin' is supported in this stage
+    if (normalizedChannel !== "linkedin") {
+      return {
+        success: false,
+        error: `Channel '${channel}' is currently unsupported. Only 'linkedin' distribution is active.`,
+      };
+    }
+
+    // 2. Validate content existence & ownership (tenant isolation)
     const content = await getContentById(contentId);
     if (!content) {
       return { success: false, error: `Content not found: ${contentId}` };
@@ -109,9 +137,28 @@ export class AutomationService {
       return { success: false, error: "Cross-tenant approval trigger rejected" };
     }
 
+    // 3. Security Gate: Only APPROVED content may enter publishing pipeline
+    if (content.status !== "APPROVED") {
+      return {
+        success: false,
+        error: `Cannot publish content with status '${content.status}'. Only APPROVED content may be published.`,
+      };
+    }
+
+    // 4. Security clearance validation
+    const secDecision =
+      options.securityDecision ||
+      ((content as unknown as Record<string, unknown>).securityDecision as string | undefined);
+    if (secDecision === "BLOCK") {
+      return {
+        success: false,
+        error: "Publishing blocked by security engine.",
+      };
+    }
+
     const versionId = options.versionId || content.version || 1;
 
-    // 2. Enforce Idempotency
+    // 5. Enforce Idempotency
     const alreadyProcessed = await this.hasActiveOrCompletedEvent(contentId, versionId);
     if (alreadyProcessed) {
       console.log(`[AutomationService] Idempotency notice: Content ${contentId} v${versionId} already has an active or completed event.`);
@@ -127,7 +174,7 @@ export class AutomationService {
       };
     }
 
-    // 3. Generate unique event ID
+    // 6. Generate unique event ID & record in RUNNING state
     const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const nowIso = new Date().toISOString();
 
@@ -140,10 +187,9 @@ export class AutomationService {
       resourceType: "CONTENT",
       resourceId: contentId,
       versionId: String(versionId),
-      channel: channel.toLowerCase(),
-      status: "TRIGGERED",
+      channel: normalizedChannel,
+      status: "RUNNING",
       workflowName: "NEXUS — Approved Content Orchestration",
-      webhookUrl: getN8nClient().getWebhookUrl(),
       retryCount: 0,
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -164,7 +210,7 @@ export class AutomationService {
       console.warn("[AutomationService] Firestore write warning (retaining in memory):", err);
     }
 
-    // 4. Log Audit Event: AUTOMATION_TRIGGERED
+    // Log Audit Event: AUTOMATION_TRIGGERED
     await logAuditEvent({
       organizationId,
       userId,
@@ -175,53 +221,102 @@ export class AutomationService {
       resourceId: eventId,
       severity: "INFO",
       ipAddress: "server-orchestrator",
-      userAgent: "NEXUS-n8n-Client",
+      userAgent: "NEXUS-Internal-Orchestrator",
       details: {
         contentId,
         versionId,
-        channel,
-        webhookUrl: getN8nClient().getWebhookUrl(),
+        channel: normalizedChannel,
+        orchestrator: "internal",
       },
     });
 
-    // 5. Asynchronously trigger the n8n Cloud Webhook
-    // NOTE: Does NOT block or fail the caller if n8n is slow or temporarily unreachable
-    const triggerPayload: ApprovedContentTriggerPayload = {
-      event: "CONTENT_APPROVED",
-      eventId,
-      organizationId,
-      userId,
-      contentId,
-      versionId,
-      channel: channel.toLowerCase(),
-      timestamp: nowIso,
-    };
+    // 7. Route directly to existing production-verified LinkedIn Publishing Service
+    try {
+      const publishResult = await LinkedInService.publishApprovedContent({
+        contentId,
+        versionId,
+        organizationId,
+        userId,
+        eventId,
+        securityDecision: secDecision,
+        overrideContent: options.overrideContent,
+      });
 
-    // Dispatch webhook asynchronously
-    getN8nClient().triggerN8nWorkflow(triggerPayload).then(async (result) => {
-      // Check if event was already completed or updated by an asynchronous callback
-      const current = await AutomationService.getAutomationEventById(eventId);
-      if (current && current.status === "COMPLETED") {
-        return;
-      }
+      const updatedIso = new Date().toISOString();
 
-      if (!result.success) {
-        console.warn(`[AutomationService] n8n trigger reported non-fatal issue for event ${eventId}:`, result.error);
+      if (publishResult.success) {
+        eventRecord.status = "COMPLETED";
+        eventRecord.result = {
+          state: "PUBLISHED",
+          channel: "linkedin",
+          postId: publishResult.externalPostId,
+          publishedUrl: publishResult.publishedUrl,
+          recordId: publishResult.recordId,
+        };
+        eventRecord.updatedAt = updatedIso;
+        eventsCache.set(eventId, eventRecord);
+
+        try {
+          const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, eventId);
+          await updateDoc(docRef, cleanForFirestore({
+            status: "COMPLETED",
+            result: eventRecord.result,
+            updatedAt: serverTimestamp(),
+          }));
+        } catch {}
+
+        await logAuditEvent({
+          organizationId,
+          userId,
+          userEmail: `user_${userId}@nexus.internal`,
+          userRole: "EDITOR",
+          action: "AUTOMATION_COMPLETED",
+          resourceType: "AUTOMATION_EVENT",
+          resourceId: eventId,
+          severity: "INFO",
+          ipAddress: "server-orchestrator",
+          userAgent: "NEXUS-Internal-Orchestrator",
+          details: {
+            contentId,
+            versionId,
+            channel: "linkedin",
+            postId: publishResult.externalPostId,
+            publishedUrl: publishResult.publishedUrl,
+          },
+        });
+
+        // Notify WhatsApp user asynchronously if configured
+        WhatsAppService.notifyPublishResult({
+          organizationId,
+          contentId,
+          channel: "linkedin",
+          success: true,
+          publishedUrl: publishResult.publishedUrl,
+        }).catch(() => {});
+
+        return {
+          success: true,
+          eventId,
+          event: eventRecord,
+          publishedUrl: publishResult.publishedUrl,
+          externalPostId: publishResult.externalPostId,
+          status: "COMPLETED",
+        };
+      } else {
+        const safeError = publishResult.error || "LinkedIn publishing failed. Please retry.";
         eventRecord.status = "FAILED";
-        eventRecord.error = result.error || "Automation service unavailable.";
-        eventRecord.updatedAt = new Date().toISOString();
+        eventRecord.error = safeError;
+        eventRecord.updatedAt = updatedIso;
         eventsCache.set(eventId, eventRecord);
 
         try {
           const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, eventId);
           await updateDoc(docRef, cleanForFirestore({
             status: "FAILED",
-            error: eventRecord.error,
+            error: safeError,
             updatedAt: serverTimestamp(),
           }));
-        } catch {
-          // ignore
-        }
+        } catch {}
 
         await logAuditEvent({
           organizationId,
@@ -233,17 +328,71 @@ export class AutomationService {
           resourceId: eventId,
           severity: "WARNING",
           ipAddress: "server-orchestrator",
-          userAgent: "NEXUS-n8n-Client",
-          details: { error: result.error },
+          userAgent: "NEXUS-Internal-Orchestrator",
+          details: {
+            error: safeError,
+            errorCode: publishResult.errorCode,
+            channel: "linkedin",
+          },
         });
-      }
-    });
 
-    return {
-      success: true,
-      eventId,
-      event: eventRecord,
-    };
+        WhatsAppService.notifyPublishResult({
+          organizationId,
+          contentId,
+          channel: "linkedin",
+          success: false,
+          error: safeError,
+        }).catch(() => {});
+
+        return {
+          success: false,
+          eventId,
+          event: eventRecord,
+          error: safeError,
+          status: "FAILED",
+        };
+      }
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      const safeError = errObj?.message || "Internal automation execution error";
+      eventRecord.status = "FAILED";
+      eventRecord.error = safeError;
+      eventRecord.updatedAt = new Date().toISOString();
+      eventsCache.set(eventId, eventRecord);
+
+      try {
+        const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, eventId);
+        await updateDoc(docRef, cleanForFirestore({
+          status: "FAILED",
+          error: safeError,
+          updatedAt: serverTimestamp(),
+        }));
+      } catch {}
+
+      return {
+        success: false,
+        eventId,
+        event: eventRecord,
+        error: safeError,
+        status: "FAILED",
+      };
+    }
+  }
+
+  /**
+   * Triggers the approved content workflow.
+   * Delegates directly to the provider-neutral internal orchestrator.
+   */
+  public static async triggerApprovedContentWorkflow(
+    options: TriggerApprovedWorkflowOptions
+  ): Promise<{
+    success: boolean;
+    eventId?: string;
+    duplicate?: boolean;
+    error?: string;
+    event?: AutomationEvent;
+  }> {
+    return this.dispatchApprovedContent(options);
   }
 
   /**
@@ -460,7 +609,7 @@ export class AutomationService {
   }
 
   /**
-   * Retries an automation execution safely
+   * Retries an automation execution safely via the internal orchestrator
    */
   public static async retryAutomationEvent(
     eventId: string,
@@ -476,9 +625,21 @@ export class AutomationService {
       return { success: false, error: "Cross-tenant retry rejected" };
     }
 
+    // Verify content still exists and is approved
+    const content = await getContentById(existing.resourceId);
+    if (!content) {
+      return { success: false, error: `Content not found: ${existing.resourceId}` };
+    }
+    if (content.status !== "APPROVED") {
+      return {
+        success: false,
+        error: `Cannot retry publishing: content status is '${content.status}' (must be APPROVED).`,
+      };
+    }
+
     // Update retry state
     existing.retryCount = (existing.retryCount || 0) + 1;
-    existing.status = "TRIGGERED";
+    existing.status = "RUNNING";
     existing.error = undefined;
     existing.updatedAt = new Date().toISOString();
 
@@ -494,29 +655,62 @@ export class AutomationService {
       resourceId: eventId,
       severity: "INFO",
       ipAddress: "server-orchestrator",
-      userAgent: "NEXUS-n8n-Client",
+      userAgent: "NEXUS-Internal-Orchestrator",
       details: { retryCount: existing.retryCount },
     });
 
-    // Re-dispatch webhook
-    const triggerPayload: ApprovedContentTriggerPayload = {
-      event: "CONTENT_APPROVED",
-      eventId: existing.eventId,
-      organizationId,
-      userId,
+    // Execute via LinkedInService
+    const publishResult = await LinkedInService.publishApprovedContent({
       contentId: existing.resourceId,
       versionId: existing.versionId,
-      channel: existing.channel,
-      timestamp: new Date().toISOString(),
-    };
+      organizationId,
+      userId,
+      eventId: existing.eventId,
+    });
 
-    const result = await getN8nClient().triggerN8nWorkflow(triggerPayload);
-    if (!result.success) {
+    const nowIso = new Date().toISOString();
+    if (publishResult.success) {
+      existing.status = "COMPLETED";
+      existing.result = {
+        state: "PUBLISHED",
+        channel: "linkedin",
+        postId: publishResult.externalPostId,
+        publishedUrl: publishResult.publishedUrl,
+        recordId: publishResult.recordId,
+      };
+      existing.updatedAt = nowIso;
+      eventsCache.set(existing.id, existing);
+
+      try {
+        const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, existing.id);
+        await updateDoc(docRef, cleanForFirestore({
+          status: "COMPLETED",
+          result: existing.result,
+          error: null,
+          retryCount: existing.retryCount,
+          updatedAt: serverTimestamp(),
+        }));
+      } catch {}
+
+      return { success: true, event: existing };
+    } else {
       existing.status = "FAILED";
-      existing.error = result.error;
-    }
+      existing.error = publishResult.error || "LinkedIn publishing failed. Please retry.";
+      existing.updatedAt = nowIso;
+      eventsCache.set(existing.id, existing);
 
-    return { success: true, event: existing, error: result.error };
+      try {
+        const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, existing.id);
+        await updateDoc(docRef, cleanForFirestore({
+          status: "FAILED",
+          error: existing.error,
+          retryCount: existing.retryCount,
+          updatedAt: serverTimestamp(),
+        }));
+      } catch {}
+
+      return { success: false, event: existing, error: existing.error };
+    }
   }
 
   public static clearCache(): void {

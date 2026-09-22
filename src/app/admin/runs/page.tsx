@@ -70,7 +70,7 @@ const initialRuns: ExecutionRun[] = [
       { name: "02 Zero-Trust Security Gate", status: "COMPLETED", duration: "180ms", details: "Prompt injection: 0.0 • PII scan: CLEAN • Threat level: HIGH." },
       { name: "03 AI Synthesis (Gemini 1.5 Pro)", status: "COMPLETED", duration: "680ms", details: "Generated Executive Advisory and structured LinkedIn social post." },
       { name: "04 Compliance Governance Gate", status: "COMPLETED", duration: "210ms", details: "Auto-cleared: Passed 0.0 risk threshold and verified CVE references." },
-      { name: "05 n8n Cloud Social Publishing", status: "COMPLETED", duration: "230ms", details: "Dispatched via n8n Cloud to LinkedIn API 202608. Post URN generated." },
+      { name: "05 Native LinkedIn Social Publishing", status: "COMPLETED", duration: "190ms", details: "Dispatched via internal orchestrator to LinkedIn API 202608. Post URN generated." },
     ],
     rawPayload: {
       cve: "CVE-2026-8812",
@@ -78,7 +78,7 @@ const initialRuns: ExecutionRun[] = [
       cvss: 8.8,
       source: "kernel.org/bpf/verifier.c",
       destination: "linkedin:202608",
-      orchestrator: "n8n_cloud_webhook_v1",
+      orchestrator: "nexus_internal_orchestrator",
     },
   },
   {

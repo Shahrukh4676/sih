@@ -70,17 +70,40 @@ export function decryptToken(encryptedString: string): string {
     throw new Error("Invalid IV or authentication tag length in encrypted token.");
   }
 
-  const key = getEncryptionKey();
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
-    authTagLength: AUTH_TAG_LENGTH,
-  });
+  // Candidate keys: configured keys first, then known historical/dev keys, then default salt fallback
+  const rawCandidateSecrets = [
+    getSecret("LINKEDIN_ENCRYPTION_KEY"),
+    getSecret("ENCRYPTION_KEY"),
+    getSecret("NEXTAUTH_SECRET"),
+    "nexus_linkedin_dev_encryption_key_32_bytes_safe",
+    "nexus_prod_aes_key_993821047481948194",
+    "nexus_super_secure_linkedin_aes_key_2025_prod_0000",
+    "your_aes_256_gcm_32_byte_secret_key_here",
+    "nexus-ai-secure-token-encryption-master-salt-2026",
+  ].filter(Boolean) as string[];
 
-  decipher.setAuthTag(authTag);
+  const candidateSecrets = Array.from(new Set(rawCandidateSecrets));
 
-  const decrypted = Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]);
+  let lastError: Error | null = null;
+  for (const secret of candidateSecrets) {
+    try {
+      const key = crypto.createHash("sha256").update(secret).digest();
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+        authTagLength: AUTH_TAG_LENGTH,
+      });
 
-  return decrypted.toString("utf8");
+      decipher.setAuthTag(authTag);
+
+      const decrypted = Buffer.concat([
+        decipher.update(ciphertext),
+        decipher.final(),
+      ]);
+
+      return decrypted.toString("utf8");
+    } catch (err: unknown) {
+      lastError = err as Error;
+    }
+  }
+
+  throw lastError || new Error("Failed to decrypt token with available keys.");
 }

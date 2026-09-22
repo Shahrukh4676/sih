@@ -39,6 +39,7 @@ interface LinkedInStatus {
   };
   scopes?: string[];
   connectedAt?: string;
+  simulated?: boolean;
 }
 
 function PublishingCenterContent() {
@@ -226,9 +227,12 @@ function PublishingCenterContent() {
       const data = await res.json();
 
       if (data.success) {
+        const isSim = Boolean(data.simulated);
         setPublishFeedback({
           type: "success",
-          message: `Successfully broadcast "${title}" to LinkedIn!`,
+          message: isSim
+            ? `[Simulation Mode] Successfully simulated broadcast of "${title}" to mock LinkedIn stream (ID: ${data.postId}). To publish to your real LinkedIn feed, add your LinkedIn App Client ID and Secret to .env.local and reconnect.`
+            : `Successfully broadcast "${title}" to your live LinkedIn feed!`,
           postId: data.postId,
         });
         await fetchRecords();
@@ -343,8 +347,12 @@ function PublishingCenterContent() {
       desc: "Publish executive updates and verified briefings directly to personal LinkedIn feeds via OAuth 2.0.",
       connected: linkedinStatus?.connected,
       member: linkedinStatus?.member,
-      statusLabel: linkedinStatus?.connected ? "Connected (w_member_social)" : "Ready for Setup",
-      badgeVariant: linkedinStatus?.connected ? ("verified" as const) : ("neutral" as const),
+      statusLabel: linkedinStatus?.connected
+        ? (linkedinStatus?.simulated ? "Connected (Simulated Dev)" : "Connected (Live Production API)")
+        : "Ready for Setup",
+      badgeVariant: linkedinStatus?.connected
+        ? (linkedinStatus?.simulated ? ("warning" as const) : ("verified" as const))
+        : ("neutral" as const),
       icon: LinkedInIcon,
     },
     {
@@ -378,11 +386,11 @@ function PublishingCenterContent() {
       link: "/whatsapp",
     },
     {
-      id: "N8N",
-      name: "n8n Cloud Workflow Orchestrator",
-      desc: "Autonomous webhook graph (uunidN8XWaIcA5xY) routing approved content to social channels.",
+      id: "ORCHESTRATOR",
+      name: "NEXUS Automation Orchestrator",
+      desc: "Native in-process automation engine routing approved content directly to social channels.",
       connected: true,
-      statusLabel: "Phase 7 Connected",
+      statusLabel: "Native Active",
       badgeVariant: "verified" as const,
       icon: Workflow,
       link: "/automations",
@@ -509,9 +517,25 @@ function PublishingCenterContent() {
                     {ch.desc}
                   </p>
                   {isLinkedIn && ch.connected && ch.member && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900">
-                      <div className="font-semibold">{ch.member.name}</div>
+                    <div className="mt-3 p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{ch.member.name}</span>
+                        {linkedinStatus?.simulated ? (
+                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            Simulation Mode
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Live API
+                          </span>
+                        )}
+                      </div>
                       <div className="font-mono text-[10px] text-blue-700 truncate">{ch.member.urn}</div>
+                      {linkedinStatus?.simulated && (
+                        <p className="text-[10px] text-amber-700 font-normal pt-1 border-t border-blue-100/60">
+                          ℹ️ Posts are simulated for offline development. To publish live to your LinkedIn feed, provide real LinkedIn Client credentials in <code className="bg-amber-100/80 px-1 rounded font-mono">.env.local</code> and reconnect.
+                        </p>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -738,7 +762,7 @@ function PublishingCenterContent() {
             <EmptyState
               icon={Clock}
               title="No LinkedIn publications yet."
-              description="Approved artefacts published to LinkedIn via the Posts API or n8n workflow will appear here with live permalinks."
+              description="Approved artefacts published to LinkedIn via the Posts API will appear here with live permalinks."
             />
           ) : (
             <div className="space-y-3">

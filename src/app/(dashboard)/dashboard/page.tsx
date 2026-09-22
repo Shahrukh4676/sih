@@ -76,7 +76,7 @@ export default function DashboardPage() {
     { name: "LinkedIn", status: "Ready for Setup", icon: Share2, isConnected: false },
     { name: "X (Twitter)", status: "Ready for Setup", icon: Share2, isConnected: false },
     { name: "WhatsApp Business", status: "Coming Soon", icon: Send, isConnected: false },
-    { name: "n8n Webhook", status: "Coming Soon", icon: Workflow, isConnected: false },
+    { name: "Native Orchestrator", status: "Active", icon: Workflow, isConnected: true },
   ];
 
   return (

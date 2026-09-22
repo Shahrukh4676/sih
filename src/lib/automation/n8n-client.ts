@@ -1,10 +1,11 @@
 // ==============================================================================
-// NEXUS AI - Official n8n Workflow Client (Phase 7)
+// NEXUS AI - Legacy n8n Workflow Client
 // ==============================================================================
-// Server-side client for triggering the existing n8n Cloud workflow:
-// "NEXUS — Approved Content Orchestration" (Workflow ID: uunidN8XWaIcA5xY)
-// Webhook: https://shahrukh24.app.n8n.cloud/webhook/nexus/content-approved
-// Enforces ₹0 budget, shared-secret header auth, timeout handling, and resilience.
+// @deprecated
+// Isolated for backward compatibility and archival reference.
+// The primary LinkedIn publishing pipeline is now powered by the native
+// Internal Automation Orchestrator (src/lib/automation/automation.service.ts).
+// No external n8n or Activepieces cloud dependency is required for operation.
 // ==============================================================================
 import "server-only";
 import { getSecret, getServerEnv } from "@/lib/server-env";

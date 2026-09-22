@@ -44,27 +44,33 @@ export function MetricCounter({
   useEffect(() => {
     if (!isVisible) return;
 
-    let start = 0;
-    const end = value;
-    const totalFrames = Math.round((duration * 1000) / 16);
-    let frame = 0;
+    let rafId: number;
+    const startTime = performance.now();
+    const durationMs = duration * 1000;
+    const startValue = 0;
+    const endValue = value;
 
-    const counter = setInterval(() => {
-      frame++;
-      // Ease out cubic
-      const progress = frame / totalFrames;
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      // Ease-out cubic
       const easeProgress = 1 - Math.pow(1 - progress, 3);
-      const current = start + (end - start) * easeProgress;
+      const current = startValue + (endValue - startValue) * easeProgress;
 
       setDisplayValue(current);
 
-      if (frame >= totalFrames) {
-        setDisplayValue(end);
-        clearInterval(counter);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        setDisplayValue(endValue);
       }
-    }, 16);
+    };
 
-    return () => clearInterval(counter);
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [isVisible, value, duration]);
 
   const formatted = decimals > 0 ? displayValue.toFixed(decimals) : Math.round(displayValue).toLocaleString();

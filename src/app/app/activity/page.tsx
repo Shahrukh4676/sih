@@ -57,7 +57,7 @@ const initialActivities: ActivityItem[] = [
     title: "Autonomous Pipeline Dispatched",
     description: "Workflow 'Critical Zero-Day Advisory Broadcast' completed without human toil.",
     timestamp: "30 minutes ago",
-    meta: "Engine: n8n Cloud Webhook",
+    meta: "Engine: NEXUS Internal Orchestrator",
   },
   {
     id: "act_4",

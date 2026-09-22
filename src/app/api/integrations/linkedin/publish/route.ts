@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
       apiVersion: result.apiVersion || "202608",
       duplicate: result.duplicate || false,
       idempotent: result.duplicate || false,
+      simulated: Boolean(result.simulated),
     });
   } catch (err: unknown) {
     const errorObj = err as Error;
