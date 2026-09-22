@@ -4,12 +4,17 @@
 
 [build.environment]
   LINKEDIN_API_VERSION = "202608"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**,.next/cache/**"
 
 [context.production.environment]
   LINKEDIN_API_VERSION = "202608"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**,.next/cache/**"
 
 [context.deploy-preview.environment]
   LINKEDIN_API_VERSION = "202608"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**,.next/cache/**"
 
 [context.branch-deploy.environment]
   LINKEDIN_API_VERSION = "202608"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**,.next/cache/**"
+

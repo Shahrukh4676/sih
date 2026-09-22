@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node -e \"try{require('fs').rmSync('.next/cache',{recursive:true,force:true});console.log('Build cache purged.');}catch(e){}\"",
     "start": "next start",
     "lint": "eslint"
   },
