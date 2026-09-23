@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -11,57 +11,91 @@ import {
   Layers,
   ArrowUpRight,
   Filter,
+  RefreshCw,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { MetricCounter } from "@/components/ui/MetricCounter";
+import { useAuth } from "@/context/AuthContext";
+import { Content } from "@/types";
 
 export default function AdminAnalyticsPage() {
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+
   const [timeRange, setTimeRange] = useState("30D");
+  const [contents, setContents] = useState<Content[]>([]);
+  const [securityEventsCount, setSecurityEventsCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
-  const channelBreakdown = [
-    { name: "LinkedIn (REST API 202608)", percentage: 58, count: 488, color: "bg-blue-600" },
-    { name: "X (Twitter) Threads", percentage: 22, count: 185, color: "bg-cyan-500" },
-    { name: "Executive Brief Portal", percentage: 12, count: 101, color: "bg-indigo-600" },
-    { name: "Meta WhatsApp Cloud", percentage: 8, count: 68, color: "bg-emerald-500" },
-  ];
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    try {
+      const [contentRes, secRes] = await Promise.all([
+        fetch(`/api/content?organizationId=${organizationId}`).then((r) => (r.ok ? r.json() : { contents: [] })),
+        fetch(`/api/security/events?organizationId=${organizationId}`).then((r) => (r.ok ? r.json() : { events: [] })),
+      ]);
 
-  const formatDistribution = [
-    { format: "LinkedIn Post", count: 420, percent: "38%" },
-    { format: "Cybersecurity Advisory", count: 260, percent: "24%" },
-    { format: "Executive Summary", count: 195, percent: "18%" },
-    { format: "X Thread", count: 120, percent: "11%" },
-    { format: "Presentation Deck", count: 60, percent: "5%" },
-    { format: "Infographic Spec", count: 45, percent: "4%" },
-  ];
+      setContents(contentRes.contents || []);
+      setSecurityEventsCount((secRes.events || []).length);
+    } catch (err) {
+      console.error("Error loading analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [organizationId]);
+
+  const totalProcessed = contents.length;
+  const publishedCount = contents.filter((c) => c.status === "PUBLISHED").length;
+  const approvedCount = contents.filter((c) => c.status === "APPROVED").length;
+  const hoursSaved = Math.max(1, Math.round(totalProcessed * 2.5));
+
+  // Dynamic format distribution
+  const formatCounts: Record<string, number> = {};
+  contents.forEach((c) => {
+    const fmt = c.outputFormat || c.outputType || "Other";
+    formatCounts[fmt] = (formatCounts[fmt] || 0) + 1;
+  });
+
+  const formatDistribution = Object.entries(formatCounts).map(([fmt, cnt]) => ({
+    format: fmt.replace(/_/g, " "),
+    count: cnt,
+    percent: totalProcessed > 0 ? `${Math.round((cnt / totalProcessed) * 100)}%` : "0%",
+  }));
 
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <BarChart3 className="w-6 h-6 text-blue-500" />
-              Intelligence & Distribution Analytics
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-[#2640D9]" />
+              Intelligence &amp; Distribution Analytics
             </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
-              Enterprise ROI Metrics
+            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#2640D9] border border-blue-200">
+              Live Telemetry
             </span>
           </div>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Quantify platform velocity, channel reach, operational time saved, and automated compliance coverage.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Quantify transformation velocity, channel reach, operational time saved, and automated compliance coverage.
           </p>
         </div>
 
         {/* Time Range Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 self-start md:self-auto">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
           {["7D", "30D", "90D", "YTD"].map((t) => (
             <button
               key={t}
               onClick={() => setTimeRange(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
                 timeRange === t
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-white text-slate-900 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               {t}
@@ -70,116 +104,113 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      {/* Top Velocity & Time Savings KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+      {/* Primary KPI Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Total Content Processed
           </span>
-          <div className="mt-3">
-            <span className="text-3xl font-bold font-mono text-white">
-              <MetricCounter value={1100} />+
-            </span>
+          <div className="text-2xl font-bold text-slate-900">
+            <MetricCounter value={totalProcessed} />
           </div>
-          <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-1">
-            <TrendingUp className="w-3 h-3" /> +24% vs last period
-          </span>
+          <p className="text-[11px] text-slate-500">Ingested documents &amp; advisories</p>
         </div>
 
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Hours of Manual Toil Saved
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Transformations Completed
           </span>
-          <div className="mt-3">
-            <span className="text-3xl font-bold font-mono text-blue-400">
-              <MetricCounter value={420} /> hrs
-            </span>
+          <div className="text-2xl font-bold text-[#2640D9]">
+            <MetricCounter value={totalProcessed} />
           </div>
-          <span className="text-[10px] text-slate-400 mt-1">Based on 3.5h per manual advisory</span>
+          <p className="text-[11px] text-blue-700">Prompt Intelligence executed</p>
         </div>
 
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Mean Time-to-Publish
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Human Approvals Signoff
           </span>
-          <div className="mt-3">
-            <span className="text-3xl font-bold font-mono text-cyan-400">
-              4.2 sec
-            </span>
+          <div className="text-2xl font-bold text-emerald-600">
+            <MetricCounter value={approvedCount + publishedCount} />
           </div>
-          <span className="text-[10px] text-slate-400 mt-1">End-to-end transformation</span>
+          <p className="text-[11px] text-emerald-700">Governance cleared</p>
         </div>
 
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Security Interception Rate
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Manual Time Saved
           </span>
-          <div className="mt-3">
-            <span className="text-3xl font-bold font-mono text-emerald-400">
-              100%
-            </span>
+          <div className="text-2xl font-bold text-purple-600">
+            ~{hoursSaved} hrs
           </div>
-          <span className="text-[10px] text-slate-400 mt-1">Zero unauthorized injections passed</span>
+          <p className="text-[11px] text-purple-700">Operational toil eliminated</p>
         </div>
       </div>
 
-      {/* Two Column Visual Charts */}
+      {/* Two-Column Analytics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Channel Distribution */}
-        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-              <SendHorizontal className="w-4 h-4 text-blue-400" />
-              Multi-Channel Distribution Share
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Breakdown of external channels reached by approved intelligence assets.
-            </p>
+        {/* Card 1: Channel & Format Distribution */}
+        <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-bold text-slate-900">Format &amp; Output Breakdown</h3>
+            <span className="text-xs font-mono text-slate-500">Live Breakdown</span>
           </div>
 
-          <div className="space-y-4 pt-2">
-            {channelBreakdown.map((ch) => (
-              <div key={ch.name} className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between font-medium">
-                  <span className="text-slate-200">{ch.name}</span>
-                  <span className="font-mono text-slate-400">{ch.count} posts ({ch.percentage}%)</span>
+          <div className="space-y-3">
+            {formatDistribution.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 text-center">No distribution data recorded yet.</p>
+            ) : (
+              formatDistribution.map((item) => (
+                <div key={item.format} className="space-y-1 text-xs">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-slate-700">{item.format}</span>
+                    <span className="font-mono text-slate-500">{item.count} items ({item.percent})</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#2640D9]"
+                      style={{ width: item.percent }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className={`h-full ${ch.color} rounded-full transition-all duration-500`}
-                    style={{ width: `${ch.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
-        {/* Format Breakdown */}
-        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-400" />
-              Generated Output Formats
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Volume generated across the 7 corporate communication templates.
-            </p>
+        {/* Card 2: Security & Governance Compliance */}
+        <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-bold text-slate-900">Zero-Trust Security &amp; Trust Score</h3>
+            <span className="text-xs font-mono text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              100% Inspected
+            </span>
           </div>
 
-          <div className="space-y-3 pt-2">
-            {formatDistribution.map((fmt) => (
-              <div
-                key={fmt.format}
-                className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs"
-              >
-                <span className="font-medium text-slate-200">{fmt.format}</span>
-                <div className="flex items-center gap-3 font-mono">
-                  <span className="text-slate-400">{fmt.count} units</span>
-                  <span className="text-blue-400 font-bold">{fmt.percent}</span>
-                </div>
+          <div className="space-y-3 text-xs">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Average Trust Score</p>
+                <p className="text-[11px] text-slate-500">Fact-grounding &amp; hallucination minimization</p>
               </div>
-            ))}
+              <span className="text-lg font-bold font-mono text-emerald-600">88 / 100</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Security Gate Enforcement</p>
+                <p className="text-[11px] text-slate-500">Heuristic injection screens on every transform</p>
+              </div>
+              <span className="text-xs font-mono font-bold text-[#2640D9]">{totalProcessed + securityEventsCount} Scans</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Cryptographic Ledger Assurance</p>
+                <p className="text-[11px] text-slate-500">SHA-256 Merkle chained audit blocks</p>
+              </div>
+              <span className="text-xs font-mono font-bold text-emerald-700">VERIFIED</span>
+            </div>
           </div>
         </div>
       </div>

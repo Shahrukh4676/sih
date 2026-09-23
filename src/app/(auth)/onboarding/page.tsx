@@ -38,7 +38,7 @@ export default function OnboardingPage() {
       if (!isAuthenticated) {
         router.replace("/login");
       } else if (userProfile?.organizationId) {
-        router.replace("/dashboard");
+        router.replace("/app");
       }
     }
   }, [isAuthenticated, userProfile, loading, router]);
@@ -78,7 +78,7 @@ export default function OnboardingPage() {
         throw new Error("Failed to create organization.");
       }
       await refreshProfile();
-      router.replace("/dashboard");
+      router.replace("/app");
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to initialize organization.";

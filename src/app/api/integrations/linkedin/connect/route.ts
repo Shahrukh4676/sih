@@ -9,6 +9,24 @@ export async function GET(req: NextRequest) {
   try {
     const client = getLinkedInClient();
     const searchParams = req.nextUrl.searchParams;
+    const isJsonRequested =
+      searchParams.get("format") === "json" ||
+      req.headers.get("accept")?.includes("application/json");
+
+    if (!client.isConfigured() && !client.isSimulationMode()) {
+      const errorMsg = "LinkedIn is not configured for live publishing.";
+      if (isJsonRequested) {
+        return NextResponse.json({ success: false, error: errorMsg }, { status: 400 });
+      }
+      const returnUrl =
+        searchParams.get("returnUrl") ||
+        searchParams.get("redirect") ||
+        "/publishing";
+      const errUrl = new URL(returnUrl, req.url);
+      errUrl.searchParams.set("error", errorMsg);
+      return NextResponse.redirect(errUrl);
+    }
+
     const userId =
       req.headers.get("x-user-id") ||
       searchParams.get("userId") ||
@@ -28,11 +46,6 @@ export async function GET(req: NextRequest) {
     // Generate secure CSRF single-use state containing tenant and return destination
     const state = await LinkedInService.createOAuthState(userId, organizationId, returnUrl);
     const authUrl = client.getAuthorizationUrl(state, customRedirectUri);
-
-    // Support JSON response for API/testing clients
-    const isJsonRequested =
-      searchParams.get("format") === "json" ||
-      req.headers.get("accept")?.includes("application/json");
 
     if (isJsonRequested) {
       const jsonRes = NextResponse.json({

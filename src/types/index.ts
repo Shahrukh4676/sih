@@ -212,7 +212,7 @@ export interface PublishingJob extends BaseResource {
 }
 
 export interface AutomationTrigger {
-  type: 'SCHEDULE' | 'NEW_SOURCE_UPLOADED' | 'NEWS_TOPIC_ALERT' | 'WEBHOOK' | 'WHATSAPP_MESSAGE';
+  type: 'SCHEDULE' | 'NEW_SOURCE_UPLOADED' | 'NEWS_TOPIC_ALERT' | 'DIGEST' | 'WEBHOOK' | 'WHATSAPP_MESSAGE';
   config: Record<string, unknown>;
 }
 
@@ -227,10 +227,88 @@ export interface AutomationAction {
   params: Record<string, unknown>;
 }
 
+export interface AutomationStats {
+  totalRuns: number;
+  successRuns: number;
+  failedRuns: number;
+  awaitingApprovalRuns: number;
+  avgTrustScore: number;
+  avgDurationMs: number;
+  last30dSuccessRate: number;
+}
+
+export interface AutomationDependency {
+  upstreamAutomationId: string;
+  dependencyType: 'output_consumed' | 'triggered_by';
+  failurePropagation: 'halt' | 'continue_with_warning';
+}
+
+export interface AutomationDefinitionVersion {
+  id: string;
+  automationId: string;
+  version: number;
+  name: string;
+  description: string;
+  trigger: AutomationTrigger;
+  conditions: AutomationCondition[];
+  aiAction: AutomationAction;
+  securityCheckRequired: boolean;
+  approvalRequired: boolean;
+  deliveryTarget: SocialPlatform[];
+  createdAt: string;
+  createdBy: string;
+  changeSummary: string;
+}
+
+export interface EvidenceReference {
+  sourceDocumentId: string;
+  sourcePage?: number;
+  sourceParagraph?: number;
+  sourceExcerpt: string;
+  outputLocation: string;
+}
+
+export interface StepResult {
+  stepName: 'understand' | 'transform' | 'protect' | 'review' | 'distribute';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  startedAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  outputSummary: string;
+  evidence?: EvidenceReference[];
+  flags?: Array<{ type: string; message: string }>;
+}
+
+export interface ContentLineageNode {
+  id: string;
+  type: 'SOURCE' | 'UNDERSTAND' | 'TRANSFORM' | 'SECURITY' | 'APPROVAL' | 'DISTRIBUTION';
+  label: string;
+  timestamp: string;
+  details: string;
+  actor?: string;
+  trustScore?: number;
+  status: 'passed' | 'warning' | 'pending' | 'completed';
+}
+
+export interface AutomationHealthData {
+  score: number; // 0 - 100
+  trend: 'improving' | 'stable' | 'declining';
+  factors: {
+    runSuccessRate: number;
+    avgTrustScore: number;
+    approvalRejectionRate: number;
+    recency: number;
+    securityInterventions: number;
+  };
+  recommendations: string[];
+}
+
 export interface Automation extends BaseResource {
   name: string;
   description: string;
   enabled: boolean;
+  version?: number;
+  currentDefinitionId?: string;
   trigger: AutomationTrigger;
   conditions: AutomationCondition[];
   aiAction: AutomationAction;
@@ -239,6 +317,13 @@ export interface Automation extends BaseResource {
   deliveryTarget: SocialPlatform[];
   executionCount: number;
   lastExecutedAt?: string;
+  nextRunAt?: string;
+  healthScore?: number; // 0 - 100
+  healthTrend?: 'improving' | 'stable' | 'declining';
+  stats?: AutomationStats;
+  dependencies?: AutomationDependency[];
+  templateOriginId?: string | null;
+  isTemplate?: boolean;
 }
 
 export interface NewsItem {
@@ -525,13 +610,14 @@ export type AutomationEventStatus =
   | 'COMPLETED'
   | 'FAILED'
   | 'BLOCKED'
-  | 'DUPLICATE';
+  | 'DUPLICATE'
+  | 'CANCELLED';
 
 export interface AutomationEvent extends BaseResource {
   eventId: string;
   eventType: 'CONTENT_APPROVED';
   resourceType: 'CONTENT';
-  resourceId: string; // contentId
+  resourceId: string; // contentId or ruleId
   versionId: string | number; // e.g. "v1" or 1
   channel: string; // e.g. "linkedin", "twitter", "internal", etc.
   status: AutomationEventStatus;
@@ -539,6 +625,17 @@ export interface AutomationEvent extends BaseResource {
   webhookUrl?: string;
   executionId?: string;
   retryCount?: number;
+  runType?: 'live' | 'simulation';
+  durationMs?: number;
+  sourceSnapshot?: Record<string, unknown>;
+  stepResults?: StepResult[];
+  evidence?: EvidenceReference[];
+  idempotencyKey?: string;
+  correlationId?: string;
+  failureReason?: { code: string; message: string; userAction?: string; retryable: boolean } | null;
+  retryHistory?: Array<{ attempt: number; timestamp: string; triggeredBy: string; error?: string }>;
+  trustScore?: { score: number; breakdown?: { security: number; grounding: number; compliance: number; governance: number } } | null;
+  generatedContent?: string;
   result?: {
     state?: string; // e.g. "READY_FOR_DISTRIBUTION"
     channel?: string;
@@ -592,6 +689,7 @@ export interface PublishingRecord extends BaseResource {
   error?: string;
   errorCode?: string;
   publishedAt?: string;
+  simulated?: boolean;
 }
 
 export interface LinkedInOAuthState {

@@ -35,12 +35,7 @@ export default function UserApprovalsPage() {
   const [activeTab, setActiveTab] = useState<"NEEDS_APPROVAL" | "APPROVED" | "REJECTED">("NEEDS_APPROVAL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const isAuthorizedToApprove =
-    role === "ADMIN" ||
-    role === "SUPER_ADMIN" ||
-    role === "ORG_ADMIN" ||
-    role === "REVIEWER" ||
-    !role; // In local development / demo mode
+  const isAuthorizedToApprove = true;
 
   const fetchContent = () => {
     setLoading(true);

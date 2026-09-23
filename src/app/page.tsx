@@ -30,9 +30,8 @@ import { SpatialBackground } from "@/components/spatial/SpatialBackground";
 import { useAuth } from "@/context/AuthContext";
 
 export default function SpatialLandingPage() {
-  const { isAuthenticated, role } = useAuth();
-  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || role === "ORG_ADMIN";
-  const destinationHref = isAuthenticated ? (isAdmin ? "/admin" : "/app") : "/login";
+  const { isAuthenticated } = useAuth();
+  const destinationHref = isAuthenticated ? "/app" : "/login";
 
   // Interactive console state
   const [activeTab, setActiveTab] = useState<"linkedin" | "x" | "whatsapp" | "executive">("linkedin");
@@ -54,23 +53,21 @@ export default function SpatialLandingPage() {
       <div className="fixed top-40 right-10 w-[380px] h-[380px] bg-[#2640D9]/8 rounded-full blur-3xl pointer-events-none z-0" />
       <div className="fixed bottom-20 left-10 w-[380px] h-[380px] bg-[#8A66E6]/8 rounded-full blur-3xl pointer-events-none z-0" />
 
-      {/* Top Technical Telemetry Strip */}
-      <div className="relative z-30 bg-white/85 border-b border-[#E5E7EB] py-1.5 px-4 sm:px-8 flex items-center justify-between text-[11px] font-mono text-slate-500 backdrop-blur-md">
+      {/* Top Enterprise Status Strip */}
+      <div className="relative z-30 bg-white/85 border-b border-[#E5E7EB] py-1.5 px-4 sm:px-8 flex items-center justify-between text-[11px] font-sans text-slate-500 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-emerald-600 font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            SYS: ACTIVE
+            NEXUS AI Content Intelligence Platform
           </span>
           <span className="hidden sm:inline text-slate-300">|</span>
-          <span className="hidden sm:inline text-slate-600">CLUSTER: NX-SPATIAL-01</span>
-          <span className="hidden md:inline text-slate-300">|</span>
-          <span className="hidden md:inline text-slate-600">SECURITY: ZERO-TRUST SHA-256</span>
+          <span className="hidden sm:inline text-slate-600">Enterprise Content Protection</span>
         </div>
         <div className="flex items-center gap-3 font-medium">
-          <span className="text-[#2640D9]">REST ENGINE: LINKEDIN v202608</span>
+          <span className="text-[#2640D9]">Direct LinkedIn Publishing</span>
           <span className="text-slate-300">|</span>
-          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold">
-            ₹0 OVERHEAD
+          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold text-[10px]">
+            Protected
           </span>
         </div>
       </div>
@@ -86,7 +83,7 @@ export default function SpatialLandingPage() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-base tracking-tight text-[#111827]">NEXUS AI</span>
               <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-[#2640D9] border border-[#E5E7EB] uppercase tracking-wider">
-                Spatial Studio
+                Studio
               </span>
             </div>
           </Link>
@@ -94,19 +91,16 @@ export default function SpatialLandingPage() {
           {/* Navigation Links with Pill Styling */}
           <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 p-1 rounded-full border border-[#E5E7EB] text-xs font-medium text-slate-600">
             <a href="#pipeline" className="px-3.5 py-1.5 rounded-full hover:text-[#111827] hover:bg-white transition-colors">
-              Pipeline
+              Product
             </a>
             <a href="#console" className="px-3.5 py-1.5 rounded-full hover:text-[#111827] hover:bg-white transition-colors">
-              Live Console
+              Live Studio
             </a>
             <a href="#security" className="px-3.5 py-1.5 rounded-full hover:text-[#111827] hover:bg-white transition-colors">
-              Zero-Trust
+              Security
             </a>
             <a href="#channels" className="px-3.5 py-1.5 rounded-full hover:text-[#111827] hover:bg-white transition-colors">
-              Channels
-            </a>
-            <a href="#architecture" className="px-3.5 py-1.5 rounded-full hover:text-[#111827] hover:bg-white transition-colors">
-              Architecture
+              How It Works
             </a>
           </nav>
 
@@ -118,7 +112,7 @@ export default function SpatialLandingPage() {
                   type="button"
                   className="spatial-pill-btn px-5 py-2 text-xs font-semibold flex items-center gap-2 shadow-sm cursor-pointer"
                 >
-                  <span>{isAdmin ? "Admin Console" : "Open Studio"}</span>
+                  <span>Open Workspace</span>
                   <ArrowRight className="w-3.5 h-3.5 text-white" />
                 </button>
               </Link>
@@ -137,7 +131,7 @@ export default function SpatialLandingPage() {
                     type="button"
                     className="spatial-pill-btn px-5 py-2 text-xs font-semibold flex items-center gap-2 shadow-sm cursor-pointer"
                   >
-                    <span>Launch Studio</span>
+                    <span>Get Started</span>
                     <ArrowRight className="w-3.5 h-3.5 text-white" />
                   </button>
                 </Link>
@@ -587,7 +581,7 @@ export default function SpatialLandingPage() {
                 type="button"
                 className="spatial-pill-btn px-8 py-3.5 text-sm font-bold shadow-md shadow-slate-900/15 flex items-center gap-2 cursor-pointer"
               >
-                <span>Get Started in Studio</span>
+                <span>Create Content</span>
                 <ArrowRight className="w-4 h-4 text-white" />
               </button>
             </Link>
@@ -597,7 +591,7 @@ export default function SpatialLandingPage() {
                 type="button"
                 className="spatial-pill-outline px-6 py-3.5 text-sm font-semibold text-slate-800 shadow-xs hover:bg-slate-50 transition-all cursor-pointer"
               >
-                Open Dashboard
+                Open Workspace
               </button>
             </Link>
           </div>
@@ -612,11 +606,11 @@ export default function SpatialLandingPage() {
               <Shield className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="font-bold text-sm text-[#111827]">NEXUS AI</span>
-            <span className="text-xs text-slate-500 font-mono">• Studio Spatial Interfaces</span>
+            <span className="text-xs text-slate-500 font-mono">• Content Intelligence &amp; Distribution</span>
           </div>
 
           <p className="text-xs text-slate-500 font-mono">
-            © {new Date().getFullYear()} NEXUS AI. Zero-Trust &amp; ₹0 Budget Policy Compliant.
+            © {new Date().getFullYear()} NEXUS AI. Secure Content Intelligence Platform.
           </p>
 
           <div className="flex items-center gap-4 text-xs text-slate-600 font-medium">
@@ -629,7 +623,7 @@ export default function SpatialLandingPage() {
             </Link>
             <span>•</span>
             <Link href={destinationHref} className="hover:text-[#111827] transition-colors">
-              Platform Console
+              Workspace
             </Link>
           </div>
         </div>

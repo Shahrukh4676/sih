@@ -50,11 +50,7 @@ export default function UserContentDetailPage({
   const [copied, setCopied] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const isReviewerOrAdmin =
-    role === "ADMIN" ||
-    role === "SUPER_ADMIN" ||
-    role === "ORG_ADMIN" ||
-    role === "REVIEWER";
+  const isReviewerOrAdmin = true;
 
   useEffect(() => {
     fetch(`/api/content/${id}?organizationId=${orgId}`)

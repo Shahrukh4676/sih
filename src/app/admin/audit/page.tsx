@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layers,
   ShieldCheck,
@@ -15,294 +15,262 @@ import {
   Sparkles,
   ExternalLink,
   ShieldAlert,
+  RefreshCw,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useAuth } from "@/context/AuthContext";
+import { formatRelativeTime } from "@/lib/utils";
 
-interface AuditBlock {
-  index: number;
-  hash: string;
-  previousHash: string;
-  action: "INGESTION" | "TRANSFORMATION" | "SECURITY_SCAN" | "APPROVAL" | "PUBLISHED";
+interface AuditLogUI {
+  id: string;
+  sequenceNumber?: number;
+  integrityHash?: string;
+  prevHash?: string;
+  action: string;
   actor: string;
+  resourceType?: string;
+  resourceId?: string;
+  severity?: string;
   payloadSummary: string;
   timestamp: string;
   verified: boolean;
 }
 
-const initialLedger: AuditBlock[] = [
-  {
-    index: 0,
-    hash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-    previousHash: "0000000000000000000000000000000000000000000000000000000000000000",
-    action: "INGESTION",
-    actor: "system_genesis",
-    payloadSummary: "Genesis Block • NEXUS Platform Initialized with Zero-Trust Security Ledger",
-    timestamp: "2026-09-01T00:00:00Z",
-    verified: true,
-  },
-  {
-    index: 1,
-    hash: "8f48a17058a44e5ff3ffda045ec82e1d0f666f7f6f09e023d57d76f8bfa2e9a1",
-    previousHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-    action: "INGESTION",
-    actor: "ayaan@nexoura.ai",
-    payloadSummary: "Source Ingested: Threat Advisory CVE-2026-3829 Critical Vulnerability",
-    timestamp: "2026-09-09T14:10:22Z",
-    verified: true,
-  },
-  {
-    index: 2,
-    hash: "d4b1f69208a562479e0a8ff2439818b209d7491cf32490b4d45be70058b8d963",
-    previousHash: "8f48a17058a44e5ff3ffda045ec82e1d0f666f7f6f09e023d57d76f8bfa2e9a1",
-    action: "TRANSFORMATION",
-    actor: "gemini_1.5_pro",
-    payloadSummary: "Distilled source into LinkedIn Post & Cybersecurity Advisory formats",
-    timestamp: "2026-09-09T14:10:24Z",
-    verified: true,
-  },
-  {
-    index: 3,
-    hash: "3b29c9fa12b9846e91024bc68351a0294e019284cf759281a052b683719a8421",
-    previousHash: "d4b1f69208a562479e0a8ff2439818b209d7491cf32490b4d45be70058b8d963",
-    action: "SECURITY_SCAN",
-    actor: "zero_trust_engine",
-    payloadSummary: "Prompt Injection & PII scan completed. Risk Score: 0.01 (CLEAN)",
-    timestamp: "2026-09-09T14:10:25Z",
-    verified: true,
-  },
-  {
-    index: 4,
-    hash: "7e50294f810a92746c103948572b91823901b857201948572019485720194857",
-    previousHash: "3b29c9fa12b9846e91024bc68351a0294e019284cf759281a052b683719a8421",
-    action: "APPROVAL",
-    actor: "shahrukh@nexoura.ai",
-    payloadSummary: "Executive Approval Granted • HITL Clearance Authorized",
-    timestamp: "2026-09-09T14:12:00Z",
-    verified: true,
-  },
-  {
-    index: 5,
-    hash: "a184029481720495810294857201948572019485720194857201948572019485",
-    previousHash: "7e50294f810a92746c103948572b91823901b857201948572019485720194857",
-    action: "PUBLISHED",
-    actor: "linkedin_dispatcher",
-    payloadSummary: "Dispatched to LinkedIn API 202608 • Post URN: urn:li:share:72382910481",
-    timestamp: "2026-09-09T14:12:05Z",
-    verified: true,
-  },
-];
-
 export default function AdminAuditPage() {
-  const { success, info } = useToast();
-  const [ledger, setLedger] = useState<AuditBlock[]>(initialLedger);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [chainVerified, setChainVerified] = useState(true);
-  const [selectedBlock, setSelectedBlock] = useState<AuditBlock | null>(null);
+  const { userProfile } = useAuth();
+  const organizationId = userProfile?.organizationId || "org_primary";
+  const { success, warning, error: showError } = useToast();
 
-  const handleVerifyChain = () => {
-    setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
-      setChainVerified(true);
-      success(
-        "Cryptographic Integrity Confirmed",
-        "All 6 blocks recalculated against SHA-256 Merkle tree. Zero tampering detected."
-      );
-    }, 900);
+  const [ledger, setLedger] = useState<AuditLogUI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [chainVerified, setChainVerified] = useState<boolean | null>(null);
+  const [totalBlocks, setTotalBlocks] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchLedger = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/audit?organizationId=${organizationId}&limit=100`);
+      if (res.ok) {
+        const data = await res.json();
+        const logs: AuditLogUI[] = (data.logs || []).map((l: any, idx: number) => ({
+          id: l.id || `aud_${idx}`,
+          sequenceNumber: l.sequenceNumber || idx + 1,
+          integrityHash: l.integrityHash || "sha256_verified_block",
+          prevHash: l.prevHash || "0".repeat(64),
+          action: l.action || "SYSTEM_EVENT",
+          actor: l.userEmail || l.userId || "System",
+          resourceType: l.resourceType,
+          resourceId: l.resourceId,
+          severity: l.severity || "INFO",
+          payloadSummary: l.details ? JSON.stringify(l.details) : `Audit entry for ${l.resourceType || "Resource"}`,
+          timestamp: l.timestamp || new Date().toISOString(),
+          verified: true,
+        }));
+        setLedger(logs);
+        setTotalBlocks(logs.length);
+      }
+    } catch (err) {
+      console.error("Error loading audit ledger:", err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchLedger();
+  }, [organizationId]);
+
+  const handleVerifyChain = async () => {
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/audit/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId }),
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.valid || data.chainValid)) {
+        setChainVerified(true);
+        success(
+          "Cryptographic Chain Intact",
+          `Verified ${data.totalLogsChecked || ledger.length} blocks sequentially linked with zero tampering.`
+        );
+      } else {
+        setChainVerified(false);
+        warning("Chain Discontinuity Alert", data.error || "Cryptographic checksum mismatch detected.");
+      }
+    } catch (err: any) {
+      showError("Verification Error", err.message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const filtered = ledger.filter(
+    (b) =>
+      searchQuery === "" ||
+      b.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.actor.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (b.integrityHash && b.integrityHash.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <Layers className="w-6 h-6 text-emerald-500" />
-              Tamper-Evident SHA-256 Audit Ledger
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <Layers className="w-6 h-6 text-[#2640D9]" />
+              Cryptographic Audit Ledger
             </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              Immutable Hash Chain
+            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              SHA-256 Merkle Chain
             </span>
           </div>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Every source ingestion, AI transformation, security clearance, human approval, and social post dispatch is sealed cryptographically.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Immutable, cryptographically signed ledger recording all system events, AI transformations, security alerts, and external dispatches.
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          isLoading={isVerifying}
-          onClick={handleVerifyChain}
-          className="bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20 self-start md:self-auto"
-        >
-          <ShieldCheck className="w-4 h-4 mr-1.5" />
-          Verify Cryptographic Chain
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            isLoading={isVerifying}
+            onClick={handleVerifyChain}
+            className="bg-[#2640D9] hover:bg-blue-700 text-white shadow-2xs"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+            Verify Chain Integrity
+          </Button>
+          <button
+            onClick={fetchLedger}
+            disabled={loading}
+            className="p-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#2640D9]" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Visual Block Chain Ribbon */}
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-              Cryptographic Block Sequence (Left ➔ Right)
-            </span>
+      {/* Verification Status Banner */}
+      <div className={`p-5 rounded-2xl border shadow-2xs transition-all ${
+        chainVerified === true
+          ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
+          : chainVerified === false
+          ? "bg-rose-50/70 border-rose-200 text-rose-950"
+          : "bg-white border-slate-200/90 text-slate-900"
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ${
+              chainVerified === true ? "bg-emerald-600" : chainVerified === false ? "bg-rose-600" : "bg-[#2640D9]"
+            }`}>
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold">
+                  {chainVerified === true
+                    ? "Cryptographic Hash Chain Validated"
+                    : chainVerified === false
+                    ? "Cryptographic Mismatch Detected"
+                    : "Continuous Merkle Block Sequence"}
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/80 border border-current font-semibold">
+                  SHA-256
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {chainVerified === true
+                  ? `All ${totalBlocks} sequence blocks verified sequentially linked from Genesis (0x00...00) with zero tampering.`
+                  : "Each block links to the previous block's SHA-256 integrity hash, preventing retroactive modification."}
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
-            Genesis Hash: 000000000019d668...
-          </span>
+
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700">
+              Blocks: <strong>{totalBlocks}</strong>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700">
+              Genesis: <strong>0000...0000</strong>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Horizontal Block Chain */}
-        <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-800">
-          <div className="flex items-center gap-3 min-w-max">
-            {ledger.map((block, idx) => (
-              <React.Fragment key={block.index}>
-                <div
-                  onClick={() => setSelectedBlock(block)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer w-64 flex flex-col justify-between space-y-3 ${
-                    selectedBlock?.index === block.index
-                      ? "bg-slate-900 border-emerald-500/80 ring-1 ring-emerald-500/50"
-                      : "bg-slate-950/80 border-slate-800 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-slate-500">
-                      BLOCK #{block.index}
-                    </span>
-                    <span
-                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded uppercase ${
-                        block.action === "INGESTION"
-                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                          : block.action === "TRANSFORMATION"
-                          ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                          : block.action === "SECURITY_SCAN"
-                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          : block.action === "APPROVAL"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                      }`}
-                    >
-                      {block.action}
-                    </span>
-                  </div>
+      {/* Search & Filter */}
+      <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <Search className="w-4 h-4 text-slate-400 ml-1" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Filter by action, actor, or hash checksum..."
+          className="w-full bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
+        />
+      </div>
 
-                  <p className="text-xs font-semibold text-slate-200 line-clamp-2 leading-tight">
-                    {block.payloadSummary}
-                  </p>
-
-                  <div className="pt-2 border-t border-slate-800/80 font-mono text-[10px] text-slate-500 truncate">
-                    <span>Hash: {block.hash.substring(0, 12)}...</span>
-                  </div>
+      {/* Ledger Block Sequence */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="p-12 text-center text-slate-500 text-xs bg-white rounded-2xl border border-slate-200">
+            Loading immutable audit sequence...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-slate-500 text-xs bg-white rounded-2xl border border-slate-200">
+            No audit records matching query.
+          </div>
+        ) : (
+          filtered.map((block) => (
+            <div
+              key={block.id}
+              className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all shadow-2xs space-y-3"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-mono text-[11px] font-bold">
+                    #{block.sequenceNumber}
+                  </span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {block.action}
+                  </span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    block.severity === "CRITICAL" || block.severity === "HIGH"
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : "bg-blue-50 text-[#2640D9] border-blue-200"
+                  }`}>
+                    {block.severity || "INFO"}
+                  </span>
                 </div>
 
-                {idx < ledger.length - 1 && (
-                  <div className="flex items-center text-slate-600">
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </div>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {formatRelativeTime(block.timestamp)}
+                </span>
+              </div>
 
-      {/* Selected Block Inspection */}
-      {selectedBlock && (
-        <div className="p-6 rounded-2xl bg-slate-900/80 border border-emerald-500/40 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Hash className="w-4 h-4 text-emerald-400" />
-              Detailed Cryptographic Proof: Block #{selectedBlock.index}
-            </h3>
-            <button
-              onClick={() => setSelectedBlock(null)}
-              className="text-xs text-slate-400 hover:text-white"
-            >
-              Close
-            </button>
-          </div>
+              <div className="text-xs text-slate-600 font-sans leading-relaxed">
+                {block.payloadSummary}
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-slate-300">
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 block uppercase">Current SHA-256 Hash</span>
-              <p className="text-emerald-400 text-[11px] break-all">{selectedBlock.hash}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[10px] font-mono text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <div className="truncate">
+                  Prev: <span className="text-slate-700">{block.prevHash}</span>
+                </div>
+                <div className="truncate">
+                  Hash: <span className="text-[#2640D9] font-semibold">{block.integrityHash}</span>
+                </div>
+              </div>
             </div>
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 block uppercase">Previous Block Hash (Parent)</span>
-              <p className="text-slate-400 text-[11px] break-all">{selectedBlock.previousHash}</p>
-            </div>
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 block uppercase">Actor / Identity</span>
-              <p className="text-white text-[11px]">{selectedBlock.actor}</p>
-            </div>
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 block uppercase">Timestamp (ISO 8601)</span>
-              <p className="text-slate-300 text-[11px]">{selectedBlock.timestamp}</p>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs">
-            <span className="text-[10px] text-slate-500 block uppercase font-mono mb-1">Payload Seal</span>
-            <p className="text-slate-200">{selectedBlock.payloadSummary}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Ledger Table */}
-      <div className="rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-200">Full Chain History</h3>
-          <span className="text-xs text-slate-400 font-mono">{ledger.length} Blocks Verified</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-950/40">
-                <th className="py-3 px-4">Index</th>
-                <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Payload Summary</th>
-                <th className="py-3 px-4">Actor</th>
-                <th className="py-3 px-4">Hash Digest</th>
-                <th className="py-3 px-4 text-right">Integrity</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono">
-              {ledger.map((b) => (
-                <tr
-                  key={b.index}
-                  onClick={() => setSelectedBlock(b)}
-                  className="hover:bg-slate-850/50 transition-colors cursor-pointer group"
-                >
-                  <td className="py-3.5 px-4 font-bold text-slate-300">#{b.index}</td>
-                  <td className="py-3.5 px-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                      {b.action}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-sans text-slate-200 max-w-sm truncate">
-                    {b.payloadSummary}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-400 text-[11px]">{b.actor}</td>
-                  <td className="py-3.5 px-4 text-blue-400 text-[11px] truncate max-w-xs">
-                    {b.hash.substring(0, 16)}...
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Valid
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          ))
+        )}
       </div>
     </div>
   );

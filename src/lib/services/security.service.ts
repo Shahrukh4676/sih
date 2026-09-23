@@ -126,4 +126,28 @@ export class SecurityService {
       return eventObj;
     }
   }
+
+  /**
+   * Retrieves security alert events for an organization
+   */
+  public static async getSecurityEventsByOrg(
+    organizationId?: string,
+    limitCount = 50
+  ): Promise<SecurityEvent[]> {
+    try {
+      const col = collection(db, SECURITY_EVENTS_COLLECTION);
+      const q = organizationId
+        ? query(col, where("organizationId", "==", organizationId), orderBy("createdAt", "desc"))
+        : query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      const results = snap.docs.map((d) => normalizeFirestoreData({ id: d.id, ...d.data() }) as SecurityEvent);
+      if (results.length > 0) return results.slice(0, limitCount);
+    } catch (error) {
+      console.warn("[Security Service] Firestore query notice for events:", error);
+    }
+    const cached = Array.from(inMemoryEventsCache.values());
+    return organizationId
+      ? cached.filter((e) => e.organizationId === organizationId).slice(0, limitCount)
+      : cached.slice(0, limitCount);
+  }
 }

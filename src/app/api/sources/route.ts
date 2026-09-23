@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
     let userId = "usr_anonymous";
     let sourceType: any = "TEXT";
 
+    let originUrl: string | undefined = undefined;
+
     if (contentType.includes("application/json")) {
       const body = await req.json();
       rawText = body.text || body.content || "";
@@ -46,6 +48,64 @@ export async function POST(req: NextRequest) {
       organizationId = headerOrg || body.organizationId || organizationId;
       userId = body.userId || userId;
       sourceType = body.type || (fileName ? "DOCUMENT" : "TEXT");
+
+      if (body.url) {
+        const targetUrl = String(body.url).trim();
+        originUrl = targetUrl;
+        sourceType = "URL";
+        // Basic SSRF protection
+        try {
+          const parsed = new URL(targetUrl);
+          const hostname = parsed.hostname.toLowerCase();
+          if (
+            hostname === "localhost" ||
+            hostname === "127.0.0.1" ||
+            hostname === "::1" ||
+            hostname.startsWith("10.") ||
+            hostname.startsWith("192.168.") ||
+            hostname.startsWith("169.254.") ||
+            /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+          ) {
+            return NextResponse.json(
+              { success: false, error: "SSRF Protection: Access to private networks is forbidden." },
+              { status: 400 }
+            );
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+          const resp = await fetch(targetUrl, {
+            signal: controller.signal,
+            headers: { "User-Agent": "NexusAI-ContentIntelligence/2.0" },
+          });
+          clearTimeout(timeoutId);
+
+          if (!resp.ok) {
+            return NextResponse.json(
+              { success: false, error: `Failed to fetch remote URL: HTTP ${resp.status}` },
+              { status: 400 }
+            );
+          }
+
+          const html = await resp.text();
+          // Extract text by stripping script/style/tags
+          rawText = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/&nbsp;/g, " ")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/\s+/g, " ")
+            .trim();
+        } catch (fetchErr: any) {
+          return NextResponse.json(
+            { success: false, error: `Unable to read remote URL: ${fetchErr?.message || "Timeout or unreachable"}` },
+            { status: 400 }
+          );
+        }
+      }
     } else if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const file = formData.get("file") as File | null;

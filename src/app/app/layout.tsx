@@ -12,7 +12,6 @@ import {
   User as UserIcon,
   Settings,
   LogOut,
-  Building,
   Menu,
   X,
   Home,
@@ -37,8 +36,6 @@ export default function UserWorkspaceLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const isAdmin =
-    role === "ADMIN" || role === "SUPER_ADMIN" || role === "ORG_ADMIN";
   const userName =
     userProfile?.displayName ||
     userProfile?.email?.split("@")[0] ||
@@ -216,24 +213,6 @@ export default function UserWorkspaceLayout({
             </Link>
           );
         })}
-
-        {isAdmin && (
-          <>
-            <div className="my-3 border-t border-slate-100" />
-            <Link href="/admin">
-              <motion.div
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
-              >
-                <Building className="w-4 h-4 flex-shrink-0" />
-                {(!sidebarCollapsed || mobile) && (
-                  <span className="truncate">Admin Console</span>
-                )}
-              </motion.div>
-            </Link>
-          </>
-        )}
       </nav>
 
       {/* User Footer */}
@@ -252,8 +231,8 @@ export default function UserWorkspaceLayout({
                 <p className="text-xs font-semibold text-slate-900 truncate">
                   {userName}
                 </p>
-                <p className="text-[10px] text-slate-400 capitalize">
-                  {role?.toLowerCase() || "creator"}
+                <p className="text-[10px] text-slate-400">
+                  Creator
                 </p>
               </Link>
               <button

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Building2,
   Search,
@@ -20,7 +20,6 @@ import {
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
-import { Organization } from "@/types";
 
 interface OrgData {
   id: string;
@@ -103,6 +102,31 @@ export default function AdminOrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<OrgData | null>(null);
   const [slideOverOpen, setSlideOverOpen] = useState(false);
 
+  useEffect(() => {
+    fetch("/api/organizations")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.organizations && data.organizations.length > 0) {
+          const mapped: OrgData[] = data.organizations.map((o: any) => ({
+            id: o.id || o.organizationId,
+            name: o.name,
+            slug: o.slug || o.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            tier: (o.tier || "ENTERPRISE") as any,
+            members: o.membersCount || 1,
+            contentCount: o.contentCount || 0,
+            enforceMFA: o.securitySettings?.mfaRequired ?? true,
+            approvalPolicy: "STRICT_HUMAN_IN_THE_LOOP",
+            brandTone: o.brandSettings?.tone || "Authoritative, visionary, highly secure",
+            targetAudience: o.brandSettings?.targetAudience || "Enterprise Leaders & DevSecOps",
+            bannedPhrases: o.brandSettings?.bannedPhrases || ["cheap", "unverified"],
+            disclaimer: o.brandSettings?.mandatoryDisclaimers?.[0] || "Confidential • NEXUS AI Enterprise Security Verified",
+          }));
+          setOrgs(mapped);
+        }
+      })
+      .catch((err) => console.error("Error loading organizations:", err));
+  }, []);
+
   const filteredOrgs = orgs.filter(
     (o) =>
       o.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -127,64 +151,67 @@ export default function AdminOrganizationsPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-              <Building2 className="w-6 h-6 text-indigo-500" />
-              Organization Tenants & Governance
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <Building2 className="w-6 h-6 text-[#2640D9]" />
+              Organizations &amp; Tenants
             </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
-              {orgs.length} Multi-Tenant Domains
+            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#2640D9] border border-blue-200">
+              Multi-Tenant Isolation
             </span>
           </div>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Isolate tenant workspaces, enforce brand voice guidelines, and manage compliance policies across organizations.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Enterprise boundary segmentation, brand governance, and isolated encryption boundaries across all client tenants.
           </p>
         </div>
 
         <Button
-          onClick={() => info("Create Organization", "Contact platform engineering for high-volume enterprise onboarding.")}
+          onClick={() => info("Create Tenant", "Multi-tenant onboarding wizard initialized.")}
           variant="primary"
           size="sm"
-          className="bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 self-start md:self-auto"
+          className="bg-[#2640D9] hover:bg-blue-700 text-white shadow-2xs self-start sm:self-auto"
         >
           <Plus className="w-4 h-4 mr-1.5" />
-          Add Tenant Domain
+          Provision Tenant
         </Button>
       </div>
 
-      {/* Search Input */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+      {/* Search Bar */}
+      <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tenant organizations..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-indigo-500 transition-colors"
+            placeholder="Search organizations or slugs..."
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2640D9] focus:bg-white transition-colors"
           />
         </div>
+        <span className="text-xs font-mono text-slate-500 hidden sm:inline">
+          {filteredOrgs.length} active tenants
+        </span>
       </div>
 
-      {/* Organizations Grid */}
+      {/* Organization Grid (Clean White Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredOrgs.map((org) => {
           return (
             <div
               key={org.id}
               onClick={() => handleOpenOrg(org)}
-              className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700/80 transition-all cursor-pointer group shadow-sm flex flex-col justify-between space-y-4"
+              className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all cursor-pointer group shadow-2xs flex flex-col justify-between space-y-4"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#2640D9] font-bold text-sm">
                       {org.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-slate-200 group-hover:text-indigo-400 transition-colors">
+                      <h3 className="font-bold text-sm text-slate-900 group-hover:text-[#2640D9] transition-colors">
                         {org.name}
                       </h3>
                       <p className="text-[11px] font-mono text-slate-500">/{org.slug}</p>
@@ -194,35 +221,35 @@ export default function AdminOrganizationsPage() {
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
                       org.tier === "ENTERPRISE"
-                        ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                        ? "bg-purple-50 text-purple-700 border border-purple-200"
                         : org.tier === "PROFESSIONAL"
-                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                        : "bg-slate-800 text-slate-400 border border-slate-700"
+                        ? "bg-blue-50 text-[#2640D9] border border-blue-200"
+                        : "bg-slate-100 text-slate-600 border border-slate-200"
                     }`}
                   >
                     {org.tier}
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-400 line-clamp-2">
-                  <span className="font-semibold text-slate-300">Voice Tone:</span> {org.brandTone}
+                <p className="text-xs text-slate-600 line-clamp-2">
+                  <span className="font-semibold text-slate-800">Voice Tone:</span> {org.brandTone}
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-slate-500" />
-                    <strong className="text-slate-200">{org.members}</strong> members
+                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <strong className="text-slate-800">{org.members}</strong> members
                   </span>
                   <span className="flex items-center gap-1">
-                    <FileText className="w-3.5 h-3.5 text-slate-500" />
-                    <strong className="text-slate-200">{org.contentCount}</strong> artefacts
+                    <FileText className="w-3.5 h-3.5 text-slate-400" />
+                    <strong className="text-slate-800">{org.contentCount}</strong> artefacts
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-slate-400 group-hover:text-indigo-400 transition-colors">
-                  <span className="text-[11px]">Manage</span>
+                <div className="flex items-center gap-1 text-slate-400 group-hover:text-[#2640D9] transition-colors">
+                  <span className="text-[11px] font-semibold">Manage</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </div>
@@ -239,46 +266,46 @@ export default function AdminOrganizationsPage() {
         subtitle={selectedOrg ? `${selectedOrg.name} (${selectedOrg.id})` : undefined}
       >
         {selectedOrg && (
-          <div className="space-y-6 text-xs text-slate-300">
+          <div className="space-y-6 text-xs text-slate-700">
             {/* Overview */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase font-bold text-slate-500">Tier License</span>
-                <span className="text-xs font-mono font-bold text-purple-400">{selectedOrg.tier}</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400">Tier License</span>
+                <span className="text-xs font-mono font-bold text-purple-700">{selectedOrg.tier}</span>
               </div>
-              <p className="text-sm font-bold text-white">{selectedOrg.name}</p>
-              <p className="text-slate-400 font-mono text-[11px]">Slug: {selectedOrg.slug}</p>
+              <p className="text-sm font-bold text-slate-900">{selectedOrg.name}</p>
+              <p className="text-slate-500 font-mono text-[11px]">Slug: {selectedOrg.slug}</p>
             </div>
 
             {/* Brand Voice Guidelines */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#2640D9]" />
                 Brand Voice Policy
               </label>
 
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400">Target Tone</p>
-                  <p className="text-xs text-slate-200 mt-0.5">{selectedOrg.brandTone}</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Target Tone</p>
+                  <p className="text-xs text-slate-900 mt-0.5">{selectedOrg.brandTone}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400">Audience Persona</p>
-                  <p className="text-xs text-slate-200 mt-0.5">{selectedOrg.targetAudience}</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Audience Persona</p>
+                  <p className="text-xs text-slate-900 mt-0.5">{selectedOrg.targetAudience}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400">Restricted Phrases</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Restricted Phrases</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {selectedOrg.bannedPhrases.map((phrase, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-mono">
+                      <span key={i} className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-mono font-semibold">
                         {phrase}
                       </span>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-slate-400">Mandatory Footer Disclaimer</p>
-                  <p className="text-[11px] font-mono text-slate-400 italic mt-0.5 bg-slate-950 p-2 rounded border border-slate-800">
+                  <p className="text-[11px] font-semibold text-slate-500">Mandatory Footer Disclaimer</p>
+                  <p className="text-[11px] font-mono text-slate-600 italic mt-0.5 bg-white p-2 rounded border border-slate-200">
                     "{selectedOrg.disclaimer}"
                   </p>
                 </div>
@@ -287,55 +314,39 @@ export default function AdminOrganizationsPage() {
 
             {/* Security Enforcement */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Security & Approval Policies
+              <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Security &amp; Approval Policies
               </label>
 
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-slate-200">Enforce MFA for all members</p>
-                    <p className="text-[10px] text-slate-500">Require TOTP or FIDO2 hardware keys</p>
+                    <p className="text-xs font-semibold text-slate-900">Enforce Multi-Factor Auth (MFA)</p>
+                    <p className="text-[11px] text-slate-500">Mandatory biometric / TOTP token for all members</p>
                   </div>
                   <button
                     onClick={handleToggleMFA}
-                    className={`w-10 h-6 rounded-full transition-colors relative ${
-                      selectedOrg.enforceMFA ? "bg-emerald-600" : "bg-slate-700"
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                      selectedOrg.enforceMFA
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                        : "bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300"
                     }`}
                   >
-                    <span
-                      className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                        selectedOrg.enforceMFA ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
+                    {selectedOrg.enforceMFA ? "Enforced" : "Optional"}
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
                   <div>
-                    <p className="font-semibold text-slate-200">Default Approval Policy</p>
-                    <p className="text-[10px] text-slate-500">Human gate before publishing</p>
+                    <p className="text-xs font-semibold text-slate-900">Publishing Review Policy</p>
+                    <p className="text-[11px] text-slate-500">Human compliance signoff before social distribution</p>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                    STRICT_HITL
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-[#2640D9] border border-blue-200">
+                    STRICT
                   </span>
                 </div>
               </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-800">
-              <Button
-                variant="primary"
-                size="sm"
-                className="w-full bg-indigo-600 hover:bg-indigo-500"
-                onClick={() => {
-                  success("Saved", "Organization governance policies successfully synchronized.");
-                  setSlideOverOpen(false);
-                }}
-              >
-                Save Organization Settings
-              </Button>
             </div>
           </div>
         )}

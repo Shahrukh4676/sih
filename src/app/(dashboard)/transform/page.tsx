@@ -60,8 +60,15 @@ Key Strategic Recommendations:
   },
 ];
 
+import { useRouter } from "next/navigation";
+
 export default function TransformPage() {
+  const router = useRouter();
   const { userProfile, organization } = useAuth();
+
+  React.useEffect(() => {
+    router.replace("/app/create");
+  }, [router]);
 
   // Wizard Stage State (1: Source, 2: Configure, 3: Generate/Results)
   const [currentStage, setCurrentStage] = useState<1 | 2 | 3>(1);

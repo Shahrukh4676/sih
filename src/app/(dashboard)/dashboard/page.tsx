@@ -31,8 +31,20 @@ import { Content } from "@/types";
 import { formatRelativeTime } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
+import { useRouter } from "next/navigation";
+
 export default function DashboardPage() {
-  const { userProfile, organization } = useAuth();
+  const router = useRouter();
+  const { userProfile, organization, role } = useAuth();
+
+  useEffect(() => {
+    const isAdmin =
+      role === "ADMIN" ||
+      role === "SUPER_ADMIN" ||
+      role === "ORG_ADMIN";
+    router.replace(isAdmin ? "/admin" : "/app");
+  }, [role, router]);
+
   const userName = userProfile?.displayName || userProfile?.email?.split("@")[0] || "User";
   const orgName = organization?.name || userProfile?.organizationId || "Primary Organization";
   const organizationId = userProfile?.organizationId || "org_primary";

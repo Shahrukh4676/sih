@@ -141,7 +141,7 @@ export class SecurityEngine {
 
     const injectionPatterns: Array<{ regex: RegExp; description: string }> = [
       {
-        regex: /\b(?:ignore|disregard|forget|bypass)\s+(?:all\s+)?(?:previous\s+)?(?:instructions|rules|prompts|commands)\b/i,
+        regex: /\b(?:ignore|disregard|forget|bypass)\s+(?:all\s+)?(?:previous|prior|all\s+previous|all\s+prior\s+)?(?:instructions|rules|prompts|commands)\b/i,
         description: "Instruction Override Attempt (Ignore previous instructions)"
       },
       {
@@ -149,7 +149,7 @@ export class SecurityEngine {
         description: "System Prompt Extraction Attempt"
       },
       {
-        regex: /\b(?:DAN:\s*|do\s+anything\s+now|you\s+are\s+now\s+in\s+jailbreak\s+mode|override\s+(?:all\s+)?(?:rules|safeguards))\b/i,
+        regex: /\b(?:DAN:\s*|do\s+anything\s+now|you\s+are\s+now\s+in\s+jailbreak\s+mode|override\s+(?:all\s+)?(?:rules|safeguards)|system\s+override)\b/i,
         description: "Jailbreak / Persona Override Pattern"
       },
       {

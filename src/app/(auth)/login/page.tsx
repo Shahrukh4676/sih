@@ -41,7 +41,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       if (userProfile?.organizationId) {
-        router.replace("/dashboard");
+        router.replace("/app");
       } else {
         router.replace("/onboarding");
       }

@@ -4,6 +4,7 @@ import { createContent } from "@/lib/services/content.service";
 import { AIService } from "@/lib/ai/ai.service";
 import { TransformationOptions, SupportedOutputFormat } from "@/lib/ai/types";
 import { SecurityEngine } from "@/lib/security/security-engine";
+import { TrustScoreEngine } from "@/lib/ai/intelligence/trust-score";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -158,6 +159,26 @@ export async function POST(req: NextRequest) {
         ? ("SECURITY_REVIEW" as const)
         : ("GENERATED" as const);
 
+    // ─── Deterministic Trust Score Engine ────────────────────────────────────
+    const allSecurityFindings = [
+      ...sourceSecurityDecision.findings,
+      ...outputSecurityDecision.findings,
+    ];
+
+    const trustScoreResult = TrustScoreEngine.calculateScore({
+      outputContent: result.content,
+      outputFormat: outputType,
+      sourceIntelligence: analysis,
+      securityFindings: allSecurityFindings,
+      approvalStatus: initialStatus === "SECURITY_REVIEW" ? "SECURITY_REVIEW" : "PENDING",
+      brandPreferences,
+    });
+
+    const initialStatusFinal =
+      trustScoreResult.verdict === "BLOCKED"
+        ? ("SECURITY_REVIEW" as const)
+        : initialStatus;
+
     // ─── Persist content ──────────────────────────────────────────────────────
     const contentPayload = {
       organizationId,
@@ -167,7 +188,7 @@ export async function POST(req: NextRequest) {
       outputType,
       title: result.title,
       content: result.content,
-      status: initialStatus,
+      status: initialStatusFinal,
       version: 1,
       sourceReferences: result.sourceReferences,
       targetAudience,
@@ -180,8 +201,11 @@ export async function POST(req: NextRequest) {
             ? "COMPREHENSIVE"
             : ("BALANCED" as any),
       communicationObjective: objective || communicationObjective,
+      trustScore: trustScoreResult.overallScore,
+      trustScoreVerdict: trustScoreResult.verdict,
+      trustScoreBreakdown: trustScoreResult.breakdown,
       securityCheck: {
-        passed: true,
+        passed: trustScoreResult.verdict !== "BLOCKED",
         piiClean: !outputSecurityDecision.findings.some((f) => f.type === "PII"),
         detectedPiiEntities: outputSecurityDecision.findings
           .filter((f) => f.type === "PII")
@@ -194,10 +218,9 @@ export async function POST(req: NextRequest) {
             ? "HIGH"
             : "LOW"
         ) as "HIGH" | "LOW",
-        brandSafetyCompliant: true,
+        brandSafetyCompliant: trustScoreResult.breakdown.compliance.bannedPhrasesFound.length === 0,
         secretLeaksFound: outputSecurityDecision.findings.some((f) => f.type === "SECRET"),
-        sourceTraceabilityScore:
-          sourceSecurityDecision.findings.length === 0 ? 0.98 : 0.85,
+        sourceTraceabilityScore: trustScoreResult.breakdown.grounding.score / 100,
         checkedAt: new Date().toISOString(),
         notes: sourceSecurityDecision.reasons
           .concat(outputSecurityDecision.reasons)
@@ -234,12 +257,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       content: savedContent,
-      // Convenience top-level fields the create page reads directly
       title: result.title,
-      // The generated text — create page reads data.content as string
       generatedText: result.content,
       contentId: savedContent?.id,
       id: savedContent?.id,
+      trustScore: trustScoreResult,
       result,
     });
   } catch (error: unknown) {

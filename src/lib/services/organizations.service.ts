@@ -137,3 +137,34 @@ export async function updateOrganization(
     return false;
   }
 }
+
+/**
+ * Fetch all organizations (for Admin console)
+ */
+export async function getAllOrganizations(): Promise<Organization[]> {
+  try {
+    const { collection, getDocs } = await import("firebase/firestore");
+    const snap = await getDocs(collection(db, ORGANIZATIONS_COLLECTION));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        organizationId: d.id,
+        name: data.name || "Unnamed Organization",
+        createdBy: data.createdBy || "",
+        status: data.status || "ACTIVE",
+        slug: data.slug || "",
+        tier: data.tier || "ENTERPRISE",
+        allowedDomains: data.allowedDomains || [],
+        enforceMFA: data.enforceMFA ?? true,
+        defaultApprovalPolicy: data.defaultApprovalPolicy || "STRICT_HUMAN_IN_THE_LOOP",
+        brandVoiceGuidelines: data.brandVoiceGuidelines,
+        createdAt: toSafeIsoString(data.createdAt),
+        updatedAt: toSafeIsoString(data.updatedAt),
+      };
+    });
+  } catch (error) {
+    console.error("[Organizations Service] Error fetching all organizations:", error);
+    return [];
+  }
+}

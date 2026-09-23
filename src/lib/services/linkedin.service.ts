@@ -622,6 +622,16 @@ export class LinkedInService {
     // ------------------------------------------------------------------------
     // GATE 5: LinkedIn Connection & Token Verification
     // ------------------------------------------------------------------------
+    const client = getLinkedInClient();
+    if (!client.isConfigured() && !client.isSimulationMode()) {
+      return {
+        success: false,
+        status: "FAILED",
+        errorCode: "LINKEDIN_NOT_CONFIGURED",
+        error: "LinkedIn is not configured for live publishing.",
+      };
+    }
+
     const targetUserId = userId || content.userId;
     const connection = await this.getLinkedInConnection(organizationId, targetUserId);
 
@@ -668,7 +678,6 @@ export class LinkedInService {
       }
 
       if (!accessToken) {
-        const client = getLinkedInClient();
         if (client.isSimulationMode()) {
           console.warn(`${logPrefix} Stored token decryption failed; healing connection with active simulation token.`);
           accessToken = `sim_token_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -694,6 +703,16 @@ export class LinkedInService {
       }
     }
 
+    // Enforce real credentials in live mode: Reject simulated token if mode is live
+    if (!client.isSimulationMode() && accessToken.startsWith("sim_token_")) {
+      return {
+        success: false,
+        status: "FAILED",
+        errorCode: "LINKEDIN_TOKEN_INVALID",
+        error: "The stored LinkedIn connection was created in simulation mode. Please reconnect your real LinkedIn account for live publishing.",
+      };
+    }
+
     // Log publishing request audit event
     await logAuditEvent({
       organizationId,
@@ -714,7 +733,7 @@ export class LinkedInService {
       },
     });
 
-    const publishResult = await getLinkedInClient().publishMemberPost(
+    const publishResult = await client.publishMemberPost(
       accessToken,
       connection.linkedinMemberUrn,
       textContent
@@ -791,6 +810,7 @@ export class LinkedInService {
       publishedAt: nowIso,
       createdAt: nowIso,
       updatedAt: nowIso,
+      simulated: Boolean(publishResult.simulated),
     };
 
     publishingRecordsCache.set(idempotencyKey, successRecord);

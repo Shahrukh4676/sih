@@ -105,18 +105,30 @@ export class LinkedInClient {
   }
 
   public isConfigured(): boolean {
-    return Boolean(this.clientId && this.clientSecret);
+    if (this.isSimulationMode()) {
+      return true;
+    }
+    if (!this.clientId || !this.clientSecret) {
+      return false;
+    }
+    const cid = this.clientId.trim();
+    const sec = this.clientSecret.trim();
+    if (
+      !cid ||
+      !sec ||
+      cid.startsWith("simulated_") ||
+      cid.startsWith("your_") ||
+      sec.startsWith("simulated_") ||
+      sec.startsWith("your_")
+    ) {
+      return false;
+    }
+    return true;
   }
 
   public isSimulationMode(): boolean {
-    return (
-      !this.clientId ||
-      !this.clientSecret ||
-      this.clientId.startsWith("sim") ||
-      this.clientId.includes("test") ||
-      this.clientId.includes("mock") ||
-      this.clientId.includes("your_linkedin")
-    );
+    const mode = getSecret("LINKEDIN_MODE")?.trim().toLowerCase();
+    return mode === "simulation";
   }
 
   public getRedirectUri(): string {
@@ -127,12 +139,22 @@ export class LinkedInClient {
    * Generates LinkedIn OAuth 2.0 Authorization URL with required member scopes
    */
   public getAuthorizationUrl(state: string, customRedirectUri?: string): string {
+    if (!this.isConfigured() && !this.isSimulationMode()) {
+      throw new Error(
+        "LinkedIn is not configured for live publishing. Please configure LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET."
+      );
+    }
     const redirect = customRedirectUri || this.redirectUri;
     const scopes = ["openid", "profile", "email", "w_member_social"].join(" ");
 
+    const clientId = this.clientId;
+    if (!clientId) {
+      throw new Error("LinkedIn client ID is not configured.");
+    }
+
     const params = new URLSearchParams({
       response_type: "code",
-      client_id: this.clientId || "simulated_client_id",
+      client_id: clientId,
       redirect_uri: redirect,
       state,
       scope: scopes,
@@ -150,18 +172,19 @@ export class LinkedInClient {
   ): Promise<LinkedInTokenResponse> {
     const redirect = customRedirectUri || this.redirectUri;
 
-    // Fast-path test / simulated credentials for offline tests
-    if (
-      code.startsWith("sim") ||
-      code.startsWith("mock") ||
-      code.startsWith("test") ||
-      this.isSimulationMode()
-    ) {
+    // Fast-path simulated credentials only when explicit simulation mode is enabled
+    if (this.isSimulationMode()) {
       return {
         accessToken: `sim_token_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         expiresIn: 5184000, // 60 days
         scope: "openid profile email w_member_social",
       };
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error(
+        "LinkedIn is not configured for live publishing. Please configure LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET."
+      );
     }
 
     const tokenUrl = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -200,16 +223,21 @@ export class LinkedInClient {
    * Retrieves authenticated member identity via OpenID Connect UserInfo endpoint
    */
   public async getMemberProfile(accessToken: string): Promise<LinkedInMemberProfile> {
-    // Fast-path test / simulated profile
+    // Fast-path test / simulated profile only in explicit simulation mode
     if (accessToken.startsWith("sim_token_")) {
-      const sub = `mem_${Date.now().toString(36)}`;
-      return {
-        id: sub,
-        urn: `urn:li:person:${sub}`,
-        name: "NEXUS Verified Executive",
-        email: "executive@nexus-intelligence.ai",
-        picture: "https://nexus-ai.internal/assets/avatar-default.png",
-      };
+      if (this.isSimulationMode()) {
+        const sub = `mem_${Date.now().toString(36)}`;
+        return {
+          id: sub,
+          urn: `urn:li:person:${sub}`,
+          name: "NEXUS Verified Executive",
+          email: "executive@nexus-intelligence.ai",
+          picture: "https://nexus-ai.internal/assets/avatar-default.png",
+        };
+      }
+      throw new Error(
+        "Cannot retrieve profile with simulated token in live mode. Please reconnect your real LinkedIn account."
+      );
     }
 
     const response = await fetch("https://api.linkedin.com/v2/userinfo", {
@@ -300,13 +328,21 @@ export class LinkedInClient {
     }
 
     if (accessToken.startsWith("sim_token_")) {
-      const postId = `urn:li:share:${Date.now()}`;
+      if (this.isSimulationMode()) {
+        const postId = `urn:li:share:${Date.now()}`;
+        return {
+          success: true,
+          statusCode: 201,
+          postId,
+          publishedUrl: undefined, // Never construct a fake LinkedIn URL for simulated posts
+          simulated: true,
+        };
+      }
       return {
-        success: true,
-        statusCode: 201,
-        postId,
-        publishedUrl: `https://www.linkedin.com/feed/update/${postId}`,
-        simulated: true,
+        success: false,
+        statusCode: 401,
+        errorCode: "LINKEDIN_TOKEN_INVALID",
+        error: "Cannot publish to live LinkedIn with a simulated development token. Please reconnect your real LinkedIn account.",
       };
     }
 
@@ -362,14 +398,25 @@ export class LinkedInClient {
         // LinkedIn returns post URN in x-restli-id header
         const postId =
           response.headers.get("x-restli-id") ||
-          response.headers.get("x-linkedin-id") ||
-          `urn:li:share:${Date.now()}`;
+          response.headers.get("x-linkedin-id");
+
+        if (!postId) {
+          return {
+            success: false,
+            statusCode: 500,
+            errorCode: "LINKEDIN_PUBLISH_FAILED",
+            error: "LinkedIn API returned HTTP 201 Created but did not include the post ID header (x-restli-id).",
+            apiVersion: version,
+          };
+        }
+
         return {
           success: true,
           statusCode: 201,
           postId,
           publishedUrl: `https://www.linkedin.com/feed/update/${postId}`,
           apiVersion: version,
+          simulated: false,
         };
       }
 

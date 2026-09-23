@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   SendHorizontal,
   Share2,
@@ -17,6 +17,9 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
+  Lock,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/ui/Icons";
 import { Content, PublishingRecord } from "@/types";
@@ -25,11 +28,15 @@ import { formatRelativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Tabs } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 interface LinkedInStatus {
   connected: boolean;
+  configured?: boolean;
+  mode?: "live" | "simulation";
   status: string;
+  isSimulatedToken?: boolean;
   member?: {
     id: string;
     urn: string;
@@ -43,6 +50,7 @@ interface LinkedInStatus {
 }
 
 function PublishingCenterContent() {
+  const router = useRouter();
   const { userProfile } = useAuth();
   const searchParams = useSearchParams();
   const connectedParam = searchParams.get("connected");
@@ -52,6 +60,11 @@ function PublishingCenterContent() {
   const [activeTab, setActiveTab] = useState<
     "CHANNELS" | "READY" | "HISTORY"
   >("CHANNELS");
+
+  useEffect(() => {
+    const search = window.location.search || "";
+    router.replace(`/admin/publishing${search}`);
+  }, [router]);
 
   // Real API state
   const [linkedinStatus, setLinkedinStatus] = useState<LinkedInStatus | null>(null);
@@ -67,6 +80,8 @@ function PublishingCenterContent() {
     type: "success" | "error";
     message: string;
     postId?: string;
+    publishedUrl?: string;
+    simulated?: boolean;
   } | null>(null);
 
   const fetchLinkedinStatus = useCallback(async () => {
@@ -214,6 +229,22 @@ function PublishingCenterContent() {
       setPublishFeedback(null);
       const targetOrgId = itemOrgId || organizationId;
 
+      if (!linkedinStatus?.configured && !linkedinStatus?.simulated) {
+        setPublishFeedback({
+          type: "error",
+          message: "LinkedIn is not configured for live publishing.",
+        });
+        return;
+      }
+
+      if (linkedinStatus?.isSimulatedToken && !linkedinStatus?.simulated) {
+        setPublishFeedback({
+          type: "error",
+          message: "The stored LinkedIn connection was created in simulation mode. Please disconnect and reconnect your real LinkedIn account for live publishing.",
+        });
+        return;
+      }
+
       const res = await fetch("/api/integrations/linkedin/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -231,9 +262,11 @@ function PublishingCenterContent() {
         setPublishFeedback({
           type: "success",
           message: isSim
-            ? `[Simulation Mode] Successfully simulated broadcast of "${title}" to mock LinkedIn stream (ID: ${data.postId}). To publish to your real LinkedIn feed, add your LinkedIn App Client ID and Secret to .env.local and reconnect.`
+            ? `Simulation — not published to LinkedIn (ID: ${data.postId})`
             : `Successfully broadcast "${title}" to your live LinkedIn feed!`,
-          postId: data.postId,
+          postId: isSim ? undefined : data.postId,
+          publishedUrl: isSim ? undefined : data.publishedUrl || data.postUrl,
+          simulated: isSim,
         });
         await fetchRecords();
         await fetchReadyContent();
@@ -347,11 +380,19 @@ function PublishingCenterContent() {
       desc: "Publish executive updates and verified briefings directly to personal LinkedIn feeds via OAuth 2.0.",
       connected: linkedinStatus?.connected,
       member: linkedinStatus?.member,
-      statusLabel: linkedinStatus?.connected
-        ? (linkedinStatus?.simulated ? "Connected (Simulated Dev)" : "Connected (Live Production API)")
+      statusLabel: !linkedinStatus?.configured && !linkedinStatus?.simulated
+        ? "Not Configured"
+        : linkedinStatus?.connected
+        ? (linkedinStatus?.simulated
+            ? "Connected (Simulation Mode)"
+            : linkedinStatus?.isSimulatedToken
+            ? "Reconnect Required"
+            : "Connected (Live Production API)")
         : "Ready for Setup",
-      badgeVariant: linkedinStatus?.connected
-        ? (linkedinStatus?.simulated ? ("warning" as const) : ("verified" as const))
+      badgeVariant: !linkedinStatus?.configured && !linkedinStatus?.simulated
+        ? ("danger" as const)
+        : linkedinStatus?.connected
+        ? (linkedinStatus?.simulated || linkedinStatus?.isSimulatedToken ? ("warning" as const) : ("verified" as const))
         : ("neutral" as const),
       icon: LinkedInIcon,
     },
@@ -441,21 +482,30 @@ function PublishingCenterContent() {
         <div
           className={`p-4 rounded-xl border text-xs flex items-center justify-between gap-3 animate-in fade-in ${
             publishFeedback.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              ? publishFeedback.simulated
+                ? "bg-amber-50 border-amber-200 text-amber-900"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
               : "bg-rose-50 border-rose-200 text-rose-800"
           }`}
         >
           <div className="flex items-center gap-2">
             {publishFeedback.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              publishFeedback.simulated ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-200/80 text-amber-900 border border-amber-300">
+                  Simulation
+                </span>
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              )
             ) : (
               <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
             )}
             <span className="font-medium">{publishFeedback.message}</span>
           </div>
-          {publishFeedback.postId && (
+          {/* ONLY display 'View on LinkedIn' when real LinkedIn post identifier/URL was returned */}
+          {!publishFeedback.simulated && (publishFeedback.publishedUrl || publishFeedback.postId) && (
             <a
-              href={`https://www.linkedin.com/feed/update/${publishFeedback.postId}`}
+              href={publishFeedback.publishedUrl || `https://www.linkedin.com/feed/update/${publishFeedback.postId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-emerald-700 underline hover:text-emerald-900 shrink-0 flex items-center gap-1"
@@ -516,25 +566,49 @@ function PublishingCenterContent() {
                   <p className="text-xs text-slate-500 leading-relaxed">
                     {ch.desc}
                   </p>
-                  {isLinkedIn && ch.connected && ch.member && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold">{ch.member.name}</span>
-                        {linkedinStatus?.simulated ? (
-                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                            Simulation Mode
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Live API
-                          </span>
-                        )}
-                      </div>
-                      <div className="font-mono text-[10px] text-blue-700 truncate">{ch.member.urn}</div>
-                      {linkedinStatus?.simulated && (
-                        <p className="text-[10px] text-amber-700 font-normal pt-1 border-t border-blue-100/60">
-                          ℹ️ Posts are simulated for offline development. To publish live to your LinkedIn feed, provide real LinkedIn Client credentials in <code className="bg-amber-100/80 px-1 rounded font-mono">.env.local</code> and reconnect.
-                        </p>
+                  {isLinkedIn && (
+                    <div className="mt-3 space-y-2">
+                      {!linkedinStatus?.configured && !linkedinStatus?.simulated && (
+                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 space-y-1">
+                          <div className="flex items-center gap-1.5 font-semibold text-rose-900">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                            LinkedIn is not configured for live publishing.
+                          </div>
+                          <p className="text-[10px] text-rose-700">
+                            To publish to your live LinkedIn feed, configure <code className="bg-rose-100/80 px-1 rounded font-mono">LINKEDIN_CLIENT_ID</code> and <code className="bg-rose-100/80 px-1 rounded font-mono">LINKEDIN_CLIENT_SECRET</code> in <code className="bg-rose-100/80 px-1 rounded font-mono">.env.local</code>.
+                          </p>
+                        </div>
+                      )}
+                      {ch.connected && ch.member && (
+                        <div className="p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">{ch.member.name}</span>
+                            {linkedinStatus?.simulated ? (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                Simulation Mode
+                              </span>
+                            ) : linkedinStatus?.isSimulatedToken ? (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                                Simulated Token
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Live API
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono text-[10px] text-blue-700 truncate">{ch.member.urn}</div>
+                          {linkedinStatus?.isSimulatedToken && !linkedinStatus?.simulated && (
+                            <p className="text-[10px] text-rose-700 font-medium pt-1 border-t border-rose-100">
+                              ⚠️ Stored credential is a simulated development token. Please disconnect and reconnect your real LinkedIn account.
+                            </p>
+                          )}
+                          {linkedinStatus?.simulated && (
+                            <p className="text-[10px] text-amber-700 font-normal pt-1 border-t border-blue-100/60">
+                              ℹ️ Simulation mode active (<code className="font-mono bg-amber-100/80 px-0.5 rounded">LINKEDIN_MODE=simulation</code>). Posts will not be broadcast to real LinkedIn feed.
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -564,6 +638,17 @@ function PublishingCenterContent() {
                           leftIcon={<Unlink className="w-3 h-3" />}
                         >
                           Disconnect
+                        </Button>
+                      ) : !linkedinStatus?.configured && !linkedinStatus?.simulated ? (
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          disabled
+                          className="bg-slate-300 text-slate-600 cursor-not-allowed"
+                          title="LinkedIn is not configured for live publishing"
+                          leftIcon={<LinkedInIcon className="w-3 h-3" />}
+                        >
+                          Connect LinkedIn
                         </Button>
                       ) : (
                         <a href={`/api/integrations/linkedin/connect?organizationId=${encodeURIComponent(organizationId)}&userId=${encodeURIComponent(userId)}&returnUrl=${encodeURIComponent("/publishing?connected=true")}`}>
@@ -714,13 +799,23 @@ function PublishingCenterContent() {
                     <Button
                       variant="primary"
                       size="xs"
-                      disabled={isOverLimit || isPublishing || !linkedinStatus?.connected}
+                      disabled={
+                        isOverLimit ||
+                        isPublishing ||
+                        !linkedinStatus?.connected ||
+                        (!linkedinStatus?.configured && !linkedinStatus?.simulated) ||
+                        Boolean(linkedinStatus?.isSimulatedToken && !linkedinStatus?.simulated)
+                      }
                       onClick={() => handlePublishToLinkedIn(item.id, item.title, item.organizationId)}
-                      className="bg-[#0A66C2] hover:bg-[#004182] text-white"
+                      className="bg-[#0A66C2] hover:bg-[#004182] text-white disabled:opacity-50"
                       leftIcon={<Zap className={`w-3.5 h-3.5 ${isPublishing ? "animate-spin" : ""}`} />}
                     >
                       {isPublishing
                         ? "Publishing..."
+                        : !linkedinStatus?.configured && !linkedinStatus?.simulated
+                        ? "Not Configured"
+                        : linkedinStatus?.isSimulatedToken && !linkedinStatus?.simulated
+                        ? "Reconnect Needed"
                         : linkedinStatus?.connected
                         ? "Post LinkedIn"
                         : "Connect LinkedIn"}
@@ -766,52 +861,67 @@ function PublishingCenterContent() {
             />
           ) : (
             <div className="space-y-3">
-              {records.map((rec) => (
-                <Card key={rec.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={rec.status === "PUBLISHED" ? "verified" : "danger"}
-                        size="sm"
-                        dot={rec.status === "PUBLISHED"}
-                      >
-                        {rec.status}
-                      </Badge>
-                      <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                        <LinkedInIcon className="w-3 h-3 text-[#0A66C2]" />
-                        LinkedIn
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        • {formatRelativeTime(rec.publishedAt || rec.createdAt)}
-                      </span>
-                    </div>
+              {records.map((rec) => {
+                const isSimulated = Boolean(
+                  rec.simulated ||
+                  (rec.externalPostId && /^urn:li:share:\d{10,14}$/.test(rec.externalPostId)) ||
+                  rec.externalPostId?.includes("sim") ||
+                  rec.externalPostId?.includes("mock")
+                );
 
-                    <div className="text-xs font-mono text-slate-600 break-all">
-                      Post ID: {rec.externalPostId || "N/A"}
-                    </div>
-
-                    {rec.error && (
-                      <div className="text-xs text-rose-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        {rec.error}
+                return (
+                  <Card key={rec.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={rec.status === "PUBLISHED" ? (isSimulated ? "neutral" : "verified") : "danger"}
+                          size="sm"
+                          dot={rec.status === "PUBLISHED"}
+                        >
+                          {rec.status}
+                        </Badge>
+                        {isSimulated ? (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                            Simulation — not published to LinkedIn
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                            <LinkedInIcon className="w-3 h-3 text-[#0A66C2]" />
+                            LinkedIn
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-400">
+                          • {formatRelativeTime(rec.publishedAt || rec.createdAt)}
+                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  {rec.publishedUrl && (
-                    <a
-                      href={rec.publishedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0"
-                    >
-                      <Button variant="outline" size="xs" leftIcon={<ExternalLink className="w-3 h-3" />}>
-                        View Post
-                      </Button>
-                    </a>
-                  )}
-                </Card>
-              ))}
+                      <div className="text-xs font-mono text-slate-600 break-all">
+                        Post ID: {rec.externalPostId || "N/A"}
+                      </div>
+
+                      {rec.error && (
+                        <div className="text-xs text-rose-600 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {rec.error}
+                        </div>
+                      )}
+                    </div>
+
+                    {!isSimulated && rec.publishedUrl && (
+                      <a
+                        href={rec.publishedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0"
+                      >
+                        <Button variant="outline" size="xs" leftIcon={<ExternalLink className="w-3 h-3" />}>
+                          View on LinkedIn
+                        </Button>
+                      </a>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

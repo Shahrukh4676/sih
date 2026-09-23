@@ -713,6 +713,107 @@ export class AutomationService {
     }
   }
 
+  /**
+   * Records a user-facing automation execution event with deterministic metrics and state
+   */
+  public static async recordExecutionEvent(params: {
+    ruleId: string;
+    ruleName: string;
+    organizationId: string;
+    userId: string;
+    channel?: string;
+    status?: AutomationEventStatus;
+    result?: Record<string, unknown>;
+  }): Promise<AutomationEvent> {
+    const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const nowIso = new Date().toISOString();
+    const eventRecord: AutomationEvent = {
+      id: eventId,
+      eventId,
+      eventType: "CONTENT_APPROVED",
+      resourceType: "CONTENT",
+      resourceId: params.ruleId,
+      versionId: "v1",
+      channel: params.channel || "linkedin",
+      status: params.status || "COMPLETED",
+      workflowName: params.ruleName,
+      organizationId: params.organizationId,
+      userId: params.userId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      completedAt: params.status === "COMPLETED" ? nowIso : undefined,
+      result: params.result || {},
+    };
+
+    eventsCache.set(eventId, eventRecord);
+
+    try {
+      const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, eventId);
+      await setDoc(docRef, cleanForFirestore({
+        ...eventRecord,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }));
+    } catch (err) {
+      console.warn("[AutomationService] Firestore write warning (cached locally):", err);
+    }
+
+    return eventRecord;
+  }
+
+  /**
+   * Cancels an in-flight automation execution mid-run
+   */
+  public static async cancelAutomationEvent(
+    eventId: string,
+    organizationId: string,
+    reason: string = "Execution cancelled by user"
+  ): Promise<{ success: boolean; event?: AutomationEvent; error?: string }> {
+    const existing = await this.getAutomationEventById(eventId);
+    if (!existing) {
+      return { success: false, error: "Execution event not found" };
+    }
+    if (existing.organizationId !== organizationId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    existing.status = "BLOCKED";
+    existing.error = reason;
+    existing.updatedAt = new Date().toISOString();
+    if (existing.result) {
+      existing.result.state = "CANCELLED";
+      existing.result.cancelledAt = new Date().toISOString();
+      existing.result.cancelReason = reason;
+    }
+
+    eventsCache.set(existing.id, existing);
+
+    try {
+      const docRef = doc(db, AUTOMATION_EVENTS_COLLECTION, existing.id);
+      await updateDoc(docRef, cleanForFirestore({
+        status: "BLOCKED",
+        error: reason,
+        updatedAt: serverTimestamp(),
+      }));
+    } catch {}
+
+    await logAuditEvent({
+      organizationId,
+      userId: existing.userId || "usr_creator",
+      userEmail: "creator@nexus.ai",
+      userRole: "EDITOR",
+      action: "AUTOMATION_CANCELLED",
+      resourceType: "AUTOMATION_EVENT",
+      resourceId: existing.id,
+      severity: "WARNING",
+      ipAddress: "127.0.0.1",
+      userAgent: "NEXUS-Engine/ExecutionManager",
+      details: { reason },
+    });
+
+    return { success: true, event: existing };
+  }
+
   public static clearCache(): void {
     eventsCache.clear();
   }

@@ -19,13 +19,29 @@ export async function GET(req: NextRequest) {
       undefined;
 
     const connection = await LinkedInService.getLinkedInConnection(organizationId, userId);
-    const isSimulated = getLinkedInClient().isSimulationMode();
+    const client = getLinkedInClient();
+    const isSimulated = client.isSimulationMode();
+    const isConfigured = client.isConfigured();
+
+    let isSimulatedToken = false;
+    if (connection?.accessTokenEncrypted) {
+      try {
+        const { decryptToken } = await import("@/lib/security/token-encryption");
+        const dec = decryptToken(connection.accessTokenEncrypted);
+        isSimulatedToken = dec.startsWith("sim_token_");
+      } catch {
+        // Ignored in status route
+      }
+    }
 
     if (!connection || connection.status !== "CONNECTED") {
       const notConnectedRes = NextResponse.json({
         connected: false,
+        configured: isConfigured,
+        mode: isSimulated ? "simulation" : "live",
         status: connection ? connection.status : "NOT_CONNECTED",
         simulated: isSimulated,
+        isSimulatedToken,
       });
       notConnectedRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       notConnectedRes.headers.set("Pragma", "no-cache");
@@ -35,8 +51,11 @@ export async function GET(req: NextRequest) {
 
     const connectedRes = NextResponse.json({
       connected: true,
+      configured: isConfigured,
+      mode: isSimulated ? "simulation" : "live",
       status: "CONNECTED",
       simulated: isSimulated,
+      isSimulatedToken,
       member: {
         id: connection.linkedinMemberId,
         urn: connection.linkedinMemberUrn,

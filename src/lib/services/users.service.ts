@@ -150,3 +150,33 @@ export async function getOrganizationUsers(organizationId: string): Promise<User
     return [];
   }
 }
+
+/**
+ * Fetch all users across all organizations (for Admin Console)
+ */
+export async function getAllUsers(): Promise<User[]> {
+  try {
+    const snap = await getDocs(collection(db, USERS_COLLECTION));
+    return snap.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        uid: docSnap.id,
+        email: data.email || "",
+        displayName: data.displayName || "",
+        photoURL: data.photoURL || undefined,
+        organizationId: data.organizationId || null,
+        role: data.role || "VIEWER",
+        status: data.status || "ACTIVE",
+        mfaEnabled: data.mfaEnabled ?? false,
+        activeSessionsCount: data.activeSessionsCount ?? 1,
+        lastLoginAt: toSafeIsoString(data.lastLoginAt),
+        createdAt: toSafeIsoString(data.createdAt, ""),
+        updatedAt: toSafeIsoString(data.updatedAt, "")
+      };
+    });
+  } catch (error) {
+    console.error("[Users Service] Error fetching all users:", error);
+    return [];
+  }
+}
