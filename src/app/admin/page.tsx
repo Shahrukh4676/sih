@@ -242,7 +242,7 @@ export default function AdminOverviewPage() {
               </div>
               <p className="text-[11px] text-emerald-700 font-medium mt-0.5 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                {linkedinStatus?.connected ? "LinkedIn REST 202608 Live" : "100% Delivery Rate"}
+                {linkedinStatus?.connected ? "LinkedIn Direct Live" : "100% Delivery Rate"}
               </p>
             </div>
           </div>
@@ -281,7 +281,7 @@ export default function AdminOverviewPage() {
                   <span className="text-[10px] font-mono text-slate-400">Live</span>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Production dispatch to <strong className="text-slate-700">{linkedinStatus?.member?.name || "Corporate Account"}</strong> via REST API version 202608.
+                  Production dispatch to <strong className="text-slate-700">{linkedinStatus?.member?.name || "Corporate Account"}</strong> verified live.
                 </p>
               </div>
             </div>

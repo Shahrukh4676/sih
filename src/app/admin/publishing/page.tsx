@@ -65,7 +65,7 @@ export default function AdminPublishingPage() {
   // Test Broadcast state
   const [showTestModal, setShowTestModal] = useState(false);
   const [testPostText, setTestPostText] = useState(
-    "NEXUS AI Pipeline Test: Autonomous intelligence artifact verified against LinkedIn Marketing REST API 202608. #NexusAI #EnterpriseAI #Cybersecurity"
+    "NEXUS AI Pipeline Test: Autonomous intelligence artifact verified for direct LinkedIn distribution. #NexusAI #EnterpriseAI #Cybersecurity"
   );
   const [isBroadcastingTest, setIsBroadcastingTest] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -143,7 +143,7 @@ export default function AdminPublishingPage() {
       if (res.ok && data.success) {
         success(
           "Published to LinkedIn Live!",
-          `Post published using official LinkedIn API version 202608. Post URN: ${data.postId || data.externalId}`
+          `Post published to LinkedIn successfully! URN: ${data.postId || data.externalId}`
         );
         fetchContentAndHistory();
       } else {
@@ -201,7 +201,7 @@ export default function AdminPublishingPage() {
       if (res.ok && data.success) {
         success(
           "LinkedIn Test Broadcast Verified!",
-          `Live post created via LinkedIn REST API 202608. URN: ${data.postId || data.externalId}`
+          `Live post created on LinkedIn. URN: ${data.postId || data.externalId}`
         );
         setShowTestModal(false);
         fetchContentAndHistory();
@@ -225,8 +225,8 @@ export default function AdminPublishingPage() {
               <SendHorizontal className="w-6 h-6 text-[#2640D9]" />
               Publishing Operations
             </h1>
-            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#2640D9] border border-blue-200">
-              LinkedIn REST 202608 Active
+            <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              LinkedIn Connected
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -286,10 +286,10 @@ export default function AdminPublishingPage() {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                LinkedIn Marketing REST API
+                LinkedIn Marketing API
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-[#2640D9] border border-blue-200">
-                API Version: 202608
+                Direct Integration
               </span>
               {linkedinStatus?.connected ? (
                 <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-semibold">
@@ -430,7 +430,7 @@ export default function AdminPublishingPage() {
                         className="bg-[#0A66C2] hover:bg-[#084e96] text-white shadow-2xs"
                       >
                         <LinkedInIcon className="w-3.5 h-3.5 mr-1.5 fill-white" />
-                        Post to LinkedIn (202608)
+                        Post to LinkedIn
                       </Button>
                     </div>
                   </div>
@@ -459,7 +459,7 @@ export default function AdminPublishingPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">LinkedIn Company &amp; Profile</h3>
-              <p className="text-xs text-slate-500 mt-1">API Version: 202608 • Verified Marketing API</p>
+              <p className="text-xs text-slate-500 mt-1">Direct Profile &amp; Company Publishing</p>
             </div>
             <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 font-mono space-y-1">
               <div>Member: <span className="font-semibold text-slate-900">{linkedinStatus?.member?.name || "Not connected"}</span></div>
@@ -518,7 +518,7 @@ export default function AdminPublishingPage() {
               </p>
             </div>
             <span className="text-xs font-mono text-slate-500">
-              API Version: 202608
+              Direct Distribution
             </span>
           </div>
 
@@ -582,7 +582,7 @@ export default function AdminPublishingPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Dispatch Live Test to LinkedIn</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">REST API 202608 • w_member_social</p>
+                  <p className="text-[11px] text-slate-500 font-mono">Direct Member Social Publishing</p>
                 </div>
               </div>
               <button

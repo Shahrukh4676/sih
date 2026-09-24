@@ -835,7 +835,7 @@ export class AutomationsManager {
         type: "DISTRIBUTION",
         label: "LinkedIn Delivery",
         timestamp: rule?.lastExecutedAt || nowIso,
-        details: "Direct publishing to verified LinkedIn member profile (REST API 202608).",
+        details: "Direct publishing to verified LinkedIn member profile.",
         actor: "LinkedIn Publishing Service",
         status: rule?.approvalRequired ? "pending" : "completed",
       },

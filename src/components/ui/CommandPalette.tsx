@@ -68,7 +68,7 @@ export function CommandPalette() {
     },
     {
       id: "act_publish",
-      title: "Publish to LinkedIn (API 202608)",
+      title: "Publish to LinkedIn",
       category: "Actions",
       icon: Share2,
       href: isAdmin ? "/admin/publishing" : "/app",

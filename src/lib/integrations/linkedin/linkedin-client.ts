@@ -92,10 +92,15 @@ export class LinkedInClient {
     const raw = getSecret("LINKEDIN_API_VERSION");
     if (raw && raw.trim()) {
       const trimmed = raw.trim();
-      if (trimmed === "202502" || trimmed === "20250201" || trimmed === "202501" || trimmed === "20260801") {
-        return DEFAULT_LINKEDIN_API_VERSION; // "202608"
+      // Ensure trimmed is strictly a valid 6-digit YYYYMM format and not a sunset version
+      if (
+        /^\d{4}(0[1-9]|1[0-2])$/.test(trimmed) &&
+        trimmed !== "202502" &&
+        trimmed !== "202501" &&
+        trimmed >= "202503"
+      ) {
+        return trimmed;
       }
-      return trimmed;
     }
     return DEFAULT_LINKEDIN_API_VERSION; // "202608"
   }

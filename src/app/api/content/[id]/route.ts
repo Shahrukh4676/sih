@@ -32,7 +32,6 @@ export async function GET(
     return NextResponse.json({
       success: true,
       content,
-      ...content,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error retrieving content";

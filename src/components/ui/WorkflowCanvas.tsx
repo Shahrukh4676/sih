@@ -64,7 +64,7 @@ const DEFAULT_STEPS: WorkflowStep[] = [
   {
     id: "publish",
     label: "Publish Everywhere",
-    subtitle: "LinkedIn API 202608 / X / n8n",
+    subtitle: "LinkedIn / X / n8n",
     status: "idle",
     icon: Share2,
     color: "bg-slate-900 text-white",

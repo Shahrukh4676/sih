@@ -455,7 +455,7 @@ export default function AdminUsersPage() {
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Publish to LinkedIn (API 202608)</span>
+                  <span className="text-slate-600">Publish to LinkedIn</span>
                   {selectedUser.role !== "VIEWER" ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   ) : (

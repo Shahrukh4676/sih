@@ -63,14 +63,14 @@ const initialRuns: ExecutionRun[] = [
     startedAt: "10 mins ago",
     completedAt: "10 mins ago",
     duration: "1.42s",
-    channel: "LinkedIn (202608) + Advisory",
+    channel: "LinkedIn + Advisory",
     riskScore: 0.0,
     steps: [
       { name: "01 Source Ingestion", status: "COMPLETED", duration: "120ms", details: "Ingested CVE-2026-8812 bulletin via RSS webhook payload." },
       { name: "02 Zero-Trust Security Gate", status: "COMPLETED", duration: "180ms", details: "Prompt injection: 0.0 • PII scan: CLEAN • Threat level: HIGH." },
       { name: "03 AI Synthesis (Gemini 1.5 Pro)", status: "COMPLETED", duration: "680ms", details: "Generated Executive Advisory and structured LinkedIn social post." },
       { name: "04 Compliance Governance Gate", status: "COMPLETED", duration: "210ms", details: "Auto-cleared: Passed 0.0 risk threshold and verified CVE references." },
-      { name: "05 Native LinkedIn Social Publishing", status: "COMPLETED", duration: "190ms", details: "Dispatched via internal orchestrator to LinkedIn API 202608. Post URN generated." },
+      { name: "05 Native LinkedIn Social Publishing", status: "COMPLETED", duration: "190ms", details: "Dispatched via internal orchestrator to LinkedIn. Post URN generated." },
     ],
     rawPayload: {
       cve: "CVE-2026-8812",
@@ -92,7 +92,7 @@ const initialRuns: ExecutionRun[] = [
     startedAt: "38 mins ago",
     completedAt: "38 mins ago",
     duration: "2.10s",
-    channel: "LinkedIn (202608)",
+    channel: "LinkedIn",
     riskScore: 0.0,
     steps: [
       { name: "01 Source Ingestion", status: "COMPLETED", duration: "240ms", details: "Ingested URL via WhatsApp Cloud Webhook handshake." },
@@ -182,7 +182,7 @@ export default function AdminRunsPage() {
       status: "RUNNING",
       startedAt: "Just now",
       duration: "0.4s",
-      channel: "LinkedIn (202608)",
+      channel: "LinkedIn",
       riskScore: 0.0,
       steps: [
         { name: "01 Source Ingestion", status: "COMPLETED", duration: "80ms", details: "Ingested synthetic test event payload." },

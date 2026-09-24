@@ -258,7 +258,7 @@ export default function AdminAutomationsPage() {
                   <span className="text-amber-700 font-semibold">ENFORCED</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>6. LinkedIn REST 202608 Distribution</span>
+                  <span>6. LinkedIn Distribution</span>
                   <span className="text-emerald-700 font-semibold">READY</span>
                 </div>
               </div>

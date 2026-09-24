@@ -270,7 +270,7 @@ export default function UserHomePage() {
               <div className="flex-1">
                 <p className="font-semibold text-slate-800">Published to LinkedIn</p>
                 <p className="text-[11px] text-slate-500">
-                  Advisory broadcast dispatched via LinkedIn REST API 202608.
+                  Advisory broadcast dispatched to LinkedIn.
                 </p>
               </div>
               <span className="text-[10px] text-slate-400 font-mono">Recent</span>

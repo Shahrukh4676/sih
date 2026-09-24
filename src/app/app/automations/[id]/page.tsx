@@ -515,7 +515,7 @@ export default function AutomationDetailPage({
                   stageName: "DISTRIBUTE",
                   title: "Publishing Target",
                   summary: (rule.deliveryTarget || ["LinkedIn"]).join(", "),
-                  details: "Direct publishing to verified LinkedIn member profile via official 202608 REST API.",
+                  details: "Direct publishing to verified LinkedIn member profile.",
                 },
               ].map((stg) => {
                 const isExpanded = expandedStage === stg.stageNum;
@@ -964,7 +964,7 @@ export default function AutomationDetailPage({
                 stage: "5. SOCIAL DISTRIBUTION",
                 icon: Share2,
                 title: "Published to LinkedIn",
-                desc: "Dispatched via verified LinkedIn member token using official 202608 REST API.",
+                desc: "Dispatched via verified LinkedIn member token directly.",
                 badge: "Distributed",
                 color: "blue",
               },

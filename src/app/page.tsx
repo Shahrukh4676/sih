@@ -150,7 +150,7 @@ export default function SpatialLandingPage() {
             Studio Spatial Hero • Enterprise Content Intelligence Engine
           </span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 text-[#2640D9] border border-blue-200 font-semibold">
-            v202608
+            Enterprise Edition
           </span>
         </div>
 
@@ -210,10 +210,10 @@ export default function SpatialLandingPage() {
 
           <div className="space-y-1 text-left border-l-2 border-[#2640D9] pl-3">
             <p className="text-2xl sm:text-3xl font-extrabold text-[#111827]">
-              <MetricCounter value={202608} prefix="v" />
+              <MetricCounter value={100} suffix="%" />
             </p>
-            <p className="text-xs text-slate-600 font-medium">LinkedIn REST API</p>
-            <p className="text-[10px] text-slate-400 font-mono">Direct Profile Publishing</p>
+            <p className="text-xs text-slate-600 font-medium">LinkedIn Direct Publishing</p>
+            <p className="text-[10px] text-slate-400 font-mono">Live Enterprise Integration</p>
           </div>
 
           <div className="space-y-1 text-left border-l-2 border-emerald-500 pl-3">
@@ -265,7 +265,7 @@ export default function SpatialLandingPage() {
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  LinkedIn (API 202608)
+                  LinkedIn Post
                 </button>
                 <button
                   type="button"
@@ -368,7 +368,7 @@ export default function SpatialLandingPage() {
                         <div className="w-6 h-6 rounded-full bg-[#2640D9] flex items-center justify-center text-[10px] font-bold text-white">
                           in
                         </div>
-                        <span className="text-[11px] font-semibold text-white">LinkedIn Executive Post (API 202608 Ready)</span>
+                        <span className="text-[11px] font-semibold text-white">LinkedIn Executive Post</span>
                       </div>
                       <p className="font-bold text-sm text-white">
                         🚨 Critical Enterprise Advisory: Linux eBPF Privilege Escalation (CVE-2026-8812)

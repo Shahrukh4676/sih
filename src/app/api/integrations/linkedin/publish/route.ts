@@ -15,8 +15,12 @@ export async function POST(req: NextRequest) {
       eventId,
       userId,
       securityDecision,
-      overrideContent,
+      overrideContent: rawOverride,
+      text,
+      content: rawContent,
     } = body;
+
+    const overrideContent = rawOverride || text || rawContent;
 
     if (!contentId || !organizationId) {
       return NextResponse.json(

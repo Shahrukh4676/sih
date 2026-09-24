@@ -146,7 +146,7 @@ export default function AdminContentDetailPage({
         setContent((prev) => (prev ? { ...prev, status: "PUBLISHED" } : null));
         success(
           "Published to LinkedIn",
-          `Live via API 202608. Post URN: ${data.externalPostId || data.postUrn || "urn:li:share:..."}`
+          `Post published successfully! URN: ${data.externalPostId || data.postUrn || "urn:li:share:..."}`
         );
       } else {
         showError("Publishing Error", data.error || "LinkedIn API returned an error.");
@@ -227,7 +227,7 @@ export default function AdminContentDetailPage({
                 isLoading={actionLoading === "publish"}
               >
                 <LinkedInIcon className="w-4 h-4 fill-white mr-1.5" />
-                Publish to LinkedIn (API 202608)
+                Publish to LinkedIn
               </Button>
             ) : (
               <Button
@@ -412,10 +412,10 @@ export default function AdminContentDetailPage({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-white">
                   <LinkedInIcon className="w-3.5 h-3.5 fill-[#0A66C2]" />
-                  <span>LinkedIn REST API</span>
+                  <span>LinkedIn</span>
                 </div>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 font-bold">
-                  202608
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                  Connected
                 </span>
               </div>
 
