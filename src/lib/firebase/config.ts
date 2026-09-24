@@ -21,7 +21,7 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDA5PLiHaCStntIkaiIsxZI4G2yUxP3DXU",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "sih-5172e.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sih-5172e",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sih-5172e.firebasestorage.app",
@@ -30,8 +30,16 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-YSHGPKWWMM"
 };
 
+// Safe configuration that avoids throwing when building without env vars
+const activeConfig = firebaseConfig.apiKey
+  ? firebaseConfig
+  : {
+      ...firebaseConfig,
+      apiKey: "dummy-client-api-key-build-safe",
+    };
+
 // Singleton initialization to prevent multiple instances
-const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(activeConfig);
 
 const auth: Auth = getAuth(app);
 
