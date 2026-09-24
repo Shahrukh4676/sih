@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Shield,
+  ShieldCheck,
   Sparkles,
   Workflow,
   CheckSquare,
@@ -101,6 +102,12 @@ export default function UserWorkspaceLayout({
       href: "/app/activity",
       icon: Clock,
       description: "History",
+    },
+    {
+      label: "Security",
+      href: "/app/security",
+      icon: ShieldCheck,
+      description: "Defense & Simulator",
     },
   ];
 

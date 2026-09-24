@@ -275,6 +275,38 @@ body {
   transform: translateY(-1px);
 }
 
+/* Zero-Trust Cybernetic Scanning Effect */
+@keyframes nexusScanBeam {
+  0% {
+    top: 2%;
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 94%;
+    opacity: 0.9;
+  }
+}
+
+.animate-scan-beam {
+  animation: nexusScanBeam 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes scannerGridPulse {
+  0%, 100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-scanner-grid {
+  animation: scannerGridPulse 2s ease-in-out infinite;
+}
+
 /* Respect user reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *,

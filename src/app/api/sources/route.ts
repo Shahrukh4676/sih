@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractTextFromSource } from "@/lib/extractors/source-extractor";
 import { createSource, getSourcesByOrg } from "@/lib/services/sources.service";
+import { SecurityEngine } from "@/lib/security/security-engine";
+import { SecurityService } from "@/lib/services/security.service";
+import { logAuditEvent } from "@/lib/services/audit.service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,11 +35,12 @@ export async function POST(req: NextRequest) {
     const headerOrg = req.headers.get("x-organization-id");
     const contentType = req.headers.get("content-type") || "";
     let rawText = "";
-    let fileName = undefined;
+    let fileName: string | undefined = undefined;
     let mimeType = "text/plain";
     let organizationId = headerOrg || "org_primary";
     let userId = "usr_anonymous";
     let sourceType: any = "TEXT";
+    let extractedResult: any = null;
 
     let originUrl: string | undefined = undefined;
 
@@ -116,11 +120,11 @@ export async function POST(req: NextRequest) {
       if (file) {
         fileName = file.name;
         mimeType = file.type || "application/octet-stream";
-        sourceType = "DOCUMENT";
+        sourceType = fileName.toLowerCase().endsWith(".pdf") || mimeType.includes("pdf") ? "PDF" : "DOCUMENT";
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const extraction = await extractTextFromSource(buffer, mimeType, fileName);
-        rawText = extraction.text;
+        extractedResult = await extractTextFromSource(buffer, mimeType, fileName);
+        rawText = extractedResult.text;
       } else {
         rawText = (formData.get("text") as string) || "";
       }
@@ -133,8 +137,86 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const extraction = await extractTextFromSource(rawText, mimeType, fileName);
+    const extraction = extractedResult || (await extractTextFromSource(rawText, mimeType, fileName));
 
+    // ==============================================================================
+    // UNTRUSTED CONTENT BOUNDARY & REAL ZERO-TRUST SECURITY SCREENING
+    // ==============================================================================
+    const securityDecision = SecurityEngine.scanSource(extraction.text, {
+      organizationId,
+      userId,
+      sourceType: sourceType as string,
+    });
+
+    if (securityDecision.decision === "BLOCK") {
+      const isHoneytoken = Boolean(securityDecision.honeytokenTriggered);
+      const hasInjection = securityDecision.findings.some((f) => f.type === "PROMPT_INJECTION");
+
+      // Record Tamper-Evident SHA-256 Audit Event
+      await logAuditEvent({
+        organizationId,
+        userId,
+        userEmail: "security-gate@nexus.ai",
+        userRole: "CREATOR",
+        ipAddress: "127.0.0.1",
+        userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+        action: isHoneytoken
+          ? "HONEYTOKEN_EXPOSURE"
+          : hasInjection
+          ? "PROMPT_INJECTION_BLOCKED"
+          : "SECURITY_POLICY_VIOLATION",
+        resourceType: sourceType === "PDF" ? "PDF_INGESTION" : sourceType === "URL" ? "URL_INGESTION" : "CONTENT_INGESTION",
+        resourceId: `source_blocked_${Date.now()}`,
+        severity: securityDecision.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
+        details: {
+          fileName,
+          sourceType,
+          verdict: "BLOCK",
+          riskLevel: securityDecision.riskLevel,
+          confidence: securityDecision.confidence,
+          safeSummary: securityDecision.report?.whatHappened || securityDecision.summary,
+        },
+      });
+
+      // Record Security Alert in Security Registry
+      await SecurityService.recordSecurityEvent({
+        organizationId,
+        eventType: isHoneytoken
+          ? "HONEYTOKEN_EXPOSURE"
+          : hasInjection
+          ? "PROMPT_INJECTION_DETECTED"
+          : "SECURITY_POLICY_BLOCKED",
+        severity: securityDecision.riskLevel,
+        description: securityDecision.report?.whatHappened || securityDecision.summary,
+        actorId: userId,
+        sourceType: sourceType as string,
+        decision: "BLOCKED",
+        detectionVersion: securityDecision.detectionVersion,
+        policyVersion: securityDecision.policyVersion,
+        timestamp: new Date().toISOString(),
+        status: "RESOLVED",
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          blocked: true,
+          decision: "BLOCK",
+          sourceType,
+          fileName,
+          error: securityDecision.report?.whatHappened || "SECURITY CHECK FAILED: Prompt injection detected in uploaded content.",
+          report: securityDecision.report,
+          checks: securityDecision.checks,
+          riskLevel: securityDecision.riskLevel,
+          reasons: securityDecision.reasons,
+          confidence: securityDecision.confidence,
+          findings: securityDecision.findings,
+        },
+        { status: 422 }
+      );
+    }
+
+    // Persist verified safe source
     const createdSource = await createSource({
       organizationId,
       userId,
@@ -143,8 +225,13 @@ export async function POST(req: NextRequest) {
       rawContent: rawText,
       originalFileName: fileName,
       extractedText: extraction.text,
-      metadata: extraction.metadata as unknown as Record<string, unknown>,
-      processingStatus: "EXTRACTED"
+      metadata: {
+        ...(extraction.metadata as unknown as Record<string, unknown>),
+        securityStatus: securityDecision.decision,
+        securityCheckedAt: securityDecision.checkedAt,
+        riskLevel: securityDecision.riskLevel,
+      },
+      processingStatus: "EXTRACTED",
     });
 
     if (!createdSource) {
@@ -157,7 +244,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       source: createdSource,
-      extractionSummary: extraction.metadata
+      securityDecision,
+      extractionSummary: extraction.metadata,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error processing source ingestion";

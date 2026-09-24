@@ -27,6 +27,8 @@ import {
 import { cleanForFirestore, normalizeFirestoreData } from "../firebase/firestore-utils";
 import { logAuditEvent } from "./audit.service";
 import { AutomationService } from "./automation.service";
+import { SecurityEngine } from "../security/security-engine";
+import { SecurityService } from "./security.service";
 
 export const AUTOMATIONS_COLLECTION = "automations";
 
@@ -339,7 +341,98 @@ export class AutomationsManager {
       });
     } catch {}
 
-    // 3. Execute Action
+    // 3. Pre-execution Zero-Trust Security Screening
+    const sourcePayload =
+      typeof eventContext.content === "string"
+        ? eventContext.content
+        : typeof eventContext.title === "string"
+        ? eventContext.title
+        : "";
+    const securityDecision = SecurityEngine.scanSource(sourcePayload, {
+      organizationId: eventContext.organizationId,
+      userId: eventContext.userId,
+      sourceId: rule.id,
+    });
+
+    if (securityDecision.decision === "BLOCK") {
+      // SECURITY BLOCK: STOP RUN. Do NOT generate content, do NOT request approval, do NOT publish.
+      const isHoneytoken = Boolean(securityDecision.honeytokenTriggered);
+      const hasInjection = securityDecision.findings.some((f) => f.type === "PROMPT_INJECTION");
+
+      await AutomationService.recordExecutionEvent({
+        ruleId: rule.id,
+        ruleName: rule.name,
+        organizationId: eventContext.organizationId,
+        userId: eventContext.userId,
+        channel: rule.deliveryTarget[0]?.toLowerCase() || "linkedin",
+        status: "FAILED",
+        result: {
+          state: "BLOCKED",
+          sourceTitle: eventContext.title || "Untrusted Ingested Payload",
+          channel: rule.deliveryTarget.join(", "),
+          format: "SECURITY_HALT",
+          securityCheck: "BLOCKED",
+          trustScore: 0,
+          trustBreakdown: {
+            security: { score: 0, notes: securityDecision.summary },
+            grounding: { score: 0, notes: "Processing halted before transformation" },
+            compliance: { score: 0, notes: "Prohibited by zero-trust security policy" },
+            governance: { score: 0, status: "BLOCKED" },
+          },
+          publishedStatus: "BLOCKED_BY_SECURITY",
+          humanReviewRequired: true,
+          securityReport: securityDecision.report,
+        },
+      });
+
+      await logAuditEvent({
+        organizationId: eventContext.organizationId,
+        userId: eventContext.userId,
+        userEmail: "security-gate@nexus.ai",
+        userRole: "SECURITY_OFFICER",
+        action: isHoneytoken ? "HONEYTOKEN_EXPOSURE" : hasInjection ? "PROMPT_INJECTION_BLOCKED" : "SECURITY_POLICY_VIOLATION",
+        resourceType: "AUTOMATION_RUN",
+        resourceId: rule.id,
+        severity: securityDecision.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
+        ipAddress: "127.0.0.1",
+        userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+        details: {
+          ruleName: rule.name,
+          verdict: "BLOCKED",
+          reasons: securityDecision.reasons,
+          safeSummary: securityDecision.report?.whatHappened || securityDecision.summary,
+        },
+      });
+
+      await SecurityService.recordSecurityEvent({
+        organizationId: eventContext.organizationId,
+        eventType: isHoneytoken
+          ? ("HONEYTOKEN_EXPOSURE" as any)
+          : hasInjection
+          ? ("PROMPT_INJECTION_DETECTED" as any)
+          : ("SECURITY_POLICY_BLOCKED" as any),
+        severity: securityDecision.riskLevel,
+        description: `Automation run halted: ${securityDecision.report?.whatHappened || securityDecision.summary}`,
+        actorId: eventContext.userId,
+        timestamp: new Date().toISOString(),
+        status: "RESOLVED",
+      });
+
+      return {
+        executed: false,
+        reason: securityDecision.report?.whatHappened || "Prompt injection detected.",
+        actionResult: {
+          ruleId: rule.id,
+          ruleName: rule.name,
+          actionType: rule.aiAction.actionType,
+          status: "BLOCKED",
+          reason: securityDecision.report?.whatHappened || "Prompt injection detected.",
+          securityDecision,
+        },
+      };
+    }
+
+    // 4. Execute Action (Only reachable if security checks passed)
     let automationEvent: AutomationEvent | undefined;
     const actionType = rule.aiAction.actionType;
 
@@ -369,10 +462,10 @@ export class AutomationsManager {
           sourceTitle: eventContext.title || "Enterprise Source Document",
           channel: rule.deliveryTarget.join(", "),
           format,
-          securityCheck: rule.securityCheckRequired ? "PASSED" : "SKIPPED",
-          trustScore: 94,
+          securityCheck: rule.securityCheckRequired ? (securityDecision.decision === "ALLOW" ? "PASSED" : "REVIEW") : "SKIPPED",
+          trustScore: securityDecision.decision === "ALLOW" ? 94 : 65,
           trustBreakdown: {
-            security: { score: 100, notes: "Zero prompt injections or sensitive leaks detected" },
+            security: { score: securityDecision.decision === "ALLOW" ? 100 : 60, notes: securityDecision.summary },
             grounding: { score: 95, notes: "Factual claims verified against source" },
             compliance: { score: 92, notes: "Enterprise policy and brand voice compliant" },
             governance: { score: rule.approvalRequired ? 88 : 100, status: rule.approvalRequired ? "PENDING_REVIEW" : "APPROVED" },
@@ -434,9 +527,25 @@ export class AutomationsManager {
     const orgId = context?.organizationId || rule.organizationId;
     const userId = context?.userId || rule.userId || "usr_creator";
     const sourceTitle = context?.sourceTitle || "Sample Research Paper: Deep Learning Paradigms.pdf";
+    const sampleText = context?.sampleContent || "";
     const nowIso = new Date().toISOString();
     const eventId = `sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const format = (rule.aiAction.params?.format as string) || "LINKEDIN_POST";
+
+    // Pre-simulation Security Screening
+    const securityDecision = sampleText
+      ? SecurityEngine.scanSource(sampleText, { organizationId: orgId, userId, sourceId: rule.id })
+      : {
+          decision: "ALLOW" as const,
+          riskLevel: "LOW" as const,
+          reasons: ["All defensive checks passed clean."],
+          findings: [],
+          checks: [],
+          report: { whatHappened: "Security checks passed.", why: "", whatNexusDid: "", result: "" },
+          summary: "Multiple defensive checks passed. Content treated as untrusted data.",
+        };
+
+    const isSimBlocked = securityDecision.decision === "BLOCK";
 
     const stepResults: StepResult[] = [
       {
@@ -445,41 +554,49 @@ export class AutomationsManager {
         startedAt: nowIso,
         completedAt: nowIso,
         durationMs: 340,
-        outputSummary: "Semantic intelligence extracted 4 key findings, 2 methodology claims, and target audience tone.",
+        outputSummary: isSimBlocked
+          ? "Ingested untrusted content payload and normalized text structure."
+          : "Semantic intelligence extracted 4 key findings, 2 methodology claims, and target audience tone.",
         evidence: [
           {
             sourceDocumentId: "doc_sample_01",
             sourcePage: 1,
             sourceParagraph: 2,
-            sourceExcerpt: "Transformers show 3.2x increase in sample efficiency when trained with sparse attention.",
-            outputLocation: "Hook & Key Insight",
+            sourceExcerpt: isSimBlocked ? sampleText.slice(0, 100) : "Transformers show 3.2x increase in sample efficiency when trained with sparse attention.",
+            outputLocation: "Input Boundary",
           },
         ],
       },
       {
-        stepName: "transform",
-        status: "completed",
-        startedAt: nowIso,
-        completedAt: nowIso,
-        durationMs: 1120,
-        outputSummary: `Generated ${format.toLowerCase().replace(/_/g, " ")} adhering to enterprise brand voice and formatting standards.`,
-      },
-      {
         stepName: "protect",
-        status: "completed",
+        status: isSimBlocked ? "failed" : "completed",
         startedAt: nowIso,
         completedAt: nowIso,
         durationMs: 210,
-        outputSummary: "Zero prompt injections detected. No API keys, passwords, or PII exposed. Factual claims 96% grounded.",
-        flags: [],
+        outputSummary: isSimBlocked
+          ? `SECURITY ALERT: ${securityDecision.report?.whatHappened || "Prompt injection detected."} ${securityDecision.summary}`
+          : "Zero prompt injections detected. No API keys, passwords, or PII exposed. Factual claims 96% grounded.",
+        flags: isSimBlocked ? [{ type: "PROMPT_INJECTION", message: "Adversarial control directive blocked" }] : [],
+      },
+      {
+        stepName: "transform",
+        status: isSimBlocked ? "skipped" : "completed",
+        startedAt: nowIso,
+        completedAt: nowIso,
+        durationMs: isSimBlocked ? 0 : 1120,
+        outputSummary: isSimBlocked
+          ? "Transformation halted by security policy to prevent instruction hijack."
+          : `Generated ${format.toLowerCase().replace(/_/g, " ")} adhering to enterprise brand voice and formatting standards.`,
       },
       {
         stepName: "review",
-        status: rule.approvalRequired ? "pending" : "completed",
+        status: isSimBlocked ? "skipped" : rule.approvalRequired ? "pending" : "completed",
         startedAt: nowIso,
         completedAt: nowIso,
         durationMs: 0,
-        outputSummary: rule.approvalRequired
+        outputSummary: isSimBlocked
+          ? "Review queue skipped due to critical security blockage."
+          : rule.approvalRequired
           ? "Human approval gate: simulation confirmed content will require signoff before publishing."
           : "Autonomous policy: direct publishing verified safe.",
       },
@@ -489,11 +606,15 @@ export class AutomationsManager {
         startedAt: nowIso,
         completedAt: nowIso,
         durationMs: 0,
-        outputSummary: "Simulation mode active: delivery to LinkedIn bypassed. No public post created.",
+        outputSummary: isSimBlocked
+          ? "Publishing prohibited. Zero untrusted instructions reached delivery channel."
+          : "Simulation mode active: delivery to LinkedIn bypassed. No public post created.",
       },
     ];
 
-    const generatedContent = `Excited to share insights from our latest analysis on "${sourceTitle}".\n\nKey Takeaways:\n• 3.2x gain in sample efficiency with sparse attention mechanisms\n• Zero architectural regressions observed across 72-hour benchmark tests\n• Verified enterprise deployment pathways\n\nHow is your team handling foundation model efficiency in 2026?`;
+    const generatedContent = isSimBlocked
+      ? "[CONTENT GENERATION BLOCKED: Source material failed zero-trust prompt injection screening.]"
+      : `Excited to share insights from our latest analysis on "${sourceTitle}".\n\nKey Takeaways:\n• 3.2x gain in sample efficiency with sparse attention mechanisms\n• Zero architectural regressions observed across 72-hour benchmark tests\n• Verified enterprise deployment pathways\n\nHow is your team handling foundation model efficiency in 2026?`;
 
     const simulationEvent: AutomationEvent = {
       id: eventId,
@@ -503,7 +624,7 @@ export class AutomationsManager {
       resourceId: rule.id,
       versionId: `v${rule.version || 1}`,
       channel: rule.deliveryTarget[0]?.toLowerCase() || "linkedin",
-      status: "COMPLETED",
+      status: isSimBlocked ? "FAILED" : "COMPLETED",
       workflowName: rule.name,
       organizationId: orgId,
       userId,
@@ -511,15 +632,15 @@ export class AutomationsManager {
       updatedAt: nowIso,
       completedAt: nowIso,
       runType: "simulation",
-      durationMs: 1670,
+      durationMs: isSimBlocked ? 550 : 1670,
       stepResults,
       trustScore: {
-        score: 95,
+        score: isSimBlocked ? 0 : 95,
         breakdown: {
-          security: 100,
-          grounding: 96,
-          compliance: 92,
-          governance: 100,
+          security: isSimBlocked ? 0 : 100,
+          grounding: isSimBlocked ? 0 : 96,
+          compliance: isSimBlocked ? 0 : 92,
+          governance: isSimBlocked ? 0 : 100,
         },
       },
       generatedContent,
@@ -529,21 +650,21 @@ export class AutomationsManager {
         simulated: true,
       },
       result: {
-        state: "SIMULATION_SUCCESS",
+        state: isSimBlocked ? "BLOCKED" : "SIMULATION_SUCCESS",
         sourceTitle,
         content: generatedContent,
         channel: rule.deliveryTarget.join(", "),
         format,
-        securityCheck: "PASSED",
-        trustScore: 95,
+        securityCheck: isSimBlocked ? "BLOCKED" : "PASSED",
+        trustScore: isSimBlocked ? 0 : 95,
         trustBreakdown: {
-          security: { score: 100, notes: "All zero-trust injection and secret checks clean" },
-          grounding: { score: 96, notes: "All claims verified against source document" },
-          compliance: { score: 92, notes: "Complies with brand voice and formatting constraints" },
-          governance: { score: 100, notes: "Simulation validated approval logic" },
+          security: { score: isSimBlocked ? 0 : 100, notes: securityDecision.summary },
+          grounding: { score: isSimBlocked ? 0 : 96, notes: isSimBlocked ? "Processing halted before transformation" : "All claims verified against source document" },
+          compliance: { score: isSimBlocked ? 0 : 92, notes: isSimBlocked ? "Prohibited by security policy" : "Complies with brand voice and formatting constraints" },
+          governance: { score: isSimBlocked ? 0 : 100, notes: isSimBlocked ? "Blocked by security" : "Simulation validated approval logic" },
         },
-        publishedStatus: "SIMULATED_NOT_PUBLISHED",
-        humanReviewRequired: rule.approvalRequired,
+        publishedStatus: isSimBlocked ? "BLOCKED_BY_SECURITY" : "SIMULATED_NOT_PUBLISHED",
+        humanReviewRequired: isSimBlocked ? true : rule.approvalRequired,
       },
     };
 
@@ -553,7 +674,7 @@ export class AutomationsManager {
       organizationId: orgId,
       userId,
       channel: rule.deliveryTarget[0]?.toLowerCase() || "linkedin",
-      status: "COMPLETED",
+      status: isSimBlocked ? "FAILED" : "COMPLETED",
       result: simulationEvent.result,
     });
 

@@ -2,111 +2,179 @@
 
 > **Transform once. Communicate everywhere.**
 
-NEXUS AI is an enterprise-grade AI content intelligence, zero-trust transformation, and multi-channel distribution platform. It enables organizations and content teams to securely ingest complex technical assets (research papers, whitepapers, threat advisories, articles, and URLs), synthesize them into audience-tailored formats, verify them against strict security and factual grounding guardrails, enforce human governance, and automate publishing to social and enterprise communication channels.
+NEXUS AI is an enterprise AI Content Intelligence, Zero-Trust Transformation, and Multi-Channel Distribution Platform. It empowers organizations to securely ingest complex technical assets (research papers, threat advisories, whitepapers, documents, and web URLs), synthesize them into audience-tailored communications, verify them through layered prompt injection defenses and deterministic factual grounding, enforce human-in-the-loop governance, and automate publishing to social and enterprise communication channels.
 
 ---
 
-## Core Product Flow
+## Core Product Lifecycle
 
 NEXUS AI operates on a deterministic six-stage lifecycle:
 
 ```text
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  DISCOVER    │ ──> │  UNDERSTAND  │ ──> │   PROTECT    │
+│  1. DISCOVER │ ──> │ 2. UNDERSTAND│ ──> │  3. PROTECT  │
 │  Ingestion   │     │  Extraction  │     │  Zero-Trust  │
 └──────────────┘     └──────────────┘     └──────────────┘
                                                  │
                                                  ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  DISTRIBUTE  │ <── │   APPROVE    │ <── │  TRANSFORM   │
-│  LinkedIn/WA │     │  Governance  │     │  Synthesis   │
+│6. DISTRIBUTE │ <── │  5. APPROVE  │ <── │ 4. TRANSFORM │
+│ LinkedIn/WA  │     │  Governance  │     │  Synthesis   │
 └──────────────┘     └──────────────┘     └──────────────┘
 ```
 
-1. **Discover (Ingest)**: Upload PDF documents, technical research, threat bulletins, raw text, or live webpage URLs.
+1. **Discover (Ingest)**: Ingest PDF documents, research whitepapers, threat bulletins, plain text, or live webpage URLs.
 2. **Understand**: Deconstruct source materials into semantic entities, claims, key findings, and contextual relationships.
-3. **Protect**: Perform autonomous pre-execution security screening to eliminate prompt injections, scrub sensitive PII/secrets, and verify factual grounding against the source.
-4. **Transform**: Synthesize platform-tailored content (LinkedIn posts, executive summaries, threat bulletins) through Prompt Intelligence, adhering to brand voice and target audience guidelines.
-5. **Approve**: Route outputs to a Human-in-the-Loop Approvals Center with side-by-side evidence references, confidence scores, and feedback controls.
-6. **Distribute**: Publish directly to verified channels (official LinkedIn REST API, Meta WhatsApp Business Cloud, and connected workflow webhooks).
+3. **Protect**: Execute layered zero-trust screening to neutralize prompt injections, redact credentials, and isolate untrusted data inside passive boundaries.
+4. **Transform**: Synthesize platform-tailored content (LinkedIn posts, executive summaries, threat advisories) through Prompt Intelligence, strictly adhering to brand voice and audience constraints.
+5. **Approve**: Route outputs to a Human-in-the-Loop Approvals Center with side-by-side evidence references, trust score breakdowns, and revision feedback.
+6. **Distribute**: Publish directly to verified channels (official LinkedIn REST API, Meta WhatsApp Business Cloud, and connected webhooks).
 
 ---
 
-## Key Features & Capabilities
+## Core Product Modules
 
-### 1. Ingestion & Semantic Understanding
-- Supports multi-format ingestion: PDF documents, research papers, technical advisories, URLs, and plain text.
-- Extracts key takeaways, factual claims, and entity mappings with source citation tracking.
-- Prepares structured context blocks for deterministic model reasoning.
+NEXUS AI provides a unified, authenticated user experience structured around six key workflows:
 
-### 2. Zero-Trust Security Pipeline
-- **Prompt Injection Defense**: Scans incoming content for delimiter manipulation, instruction overrides, and adversarial exploits.
-- **Sensitive Data & Secret Protection**: Detects and redacts API keys, credentials, private tokens, and personally identifiable information (PII).
-- **Factual Hallucination Prevention**: Verifies that generated statements are grounded in source excerpts prior to human review.
+### 1. Interactive Creation Workspace (`/app/create`)
+- **Multi-Modal Ingestion**: Upload PDFs, paste raw research, or ingest external URLs with SSRF protection.
+- **Intent Engine**: Automatically infers recommended format, target audience, tone, and communication objective from source text.
+- **Brand & Governance Directives**: Enforces banned phrases, compliance disclaimers, and detail level constraints.
+- **Real-Time Security Intervention**: If source content contains prompt injections or credentials, execution halts immediately with a clear 4-pillar explanation and defensive checklist.
 
-### 3. Prompt Intelligence & Transformation Engine
-- Multi-format generation:
-  - **LinkedIn Posts**: Hook-driven, professional, engagement-optimized social posts with hashtags.
-  - **Executive Summaries**: High-level distillation for leadership and decision-makers.
-  - **Cybersecurity & Threat Advisories**: CVE details, severity scoring, technical impact, and remediation steps.
-- Configurable parameters: tone (Professional, Executive, Technical, Casual), audience targeting, and brand guidelines.
-- **₹0 Free-First AI Architecture**: Runs on Google Gemini API (`gemini-1.5-flash` free tier) with automatic local offline fallback to Ollama (`llama3.2` on `localhost:11434`).
+### 2. Automations Platform v2.0 (`/app/automations`)
+- **Dual Creation Paths**:
+  - **Natural Language Intent**: Describe desired workflows in plain English (e.g., *"Whenever a new research paper is uploaded, create a LinkedIn post and request human approval"*); Prompt Intelligence configures the pipeline.
+  - **8-Step Guided Builder**: Configure Trigger, Source, Transform, Protect, Review, Distribute, Conditions, and Activation.
+- **Trigger Types**: New content uploads, recurring cron schedules (daily, weekly, weekdays), security CVE advisories, and rolling weekly digests.
+- **Safe Dry-Run Sandbox**: Simulates the full pipeline—understanding, transformation, and security checks—without distributing to live channels or consuming quotas.
+- **30-Day Reliability Index (Health Score)**: Calculates health (0–100) using Run Success Rate (40%), Avg Trust Score (25%), Approval Retention (15%), Recency (10%), and Security Interventions (10%).
+- **Cryptographic Content Lineage**: Visual backward traceability linking published post $\to$ run telemetry $\to$ source excerpts $\to$ security verdict $\to$ approver.
+- **Immutable Version History**: Snapshots every update ($v1.0, v2.0, \dots$); in-flight runs remain unaffected, and previous versions can be restored in 1-click.
 
-### 4. Deterministic Trust Scoring (0–100)
-Every generated output receives an auditable, formulaic Trust Score:
+### 3. Security & Attack Simulator (`/app/security`)
+- **Active Defense Dashboard**: Real-time security posture status and recent threat event audit telemetry.
+- **Interactive Attack Simulator**: A controlled testing enclave to safely verify how NEXUS stops AI security threats using the real backend Security Engine. Includes 6 live canonical scenarios:
+  1. *Direct Prompt Injection*: Instruction override attempting to reveal system instructions.
+  2. *Secret Extraction*: Attempting to extract all API keys and environment variables.
+  3. *Role Override*: Attempting privilege escalation and administrator role takeover to disable security controls.
+  4. *Indirect Prompt Injection*: Malicious directives embedded inside normal enterprise article content.
+  5. *Sensitive Information & Honeytoken*: Interception of controlled canary honeytoken (`NEXUS_DEMO_SECRET_7X9Q_FAKE`) and credentials.
+  6. *Clean Content Baseline*: Verification that legitimate enterprise content passes cleanly (`ALLOW`) without false positives.
+- **Custom Payload Testing**: Editable input allowing teams to safely test custom adversarial variations against the real defense engine.
+- **Explainable Reporting**: Provides a 4-pillar summary (*What Happened*, *Why*, *What NEXUS Did*, *Result*) alongside a 6-point defensive checklist.
+
+### 4. Human-in-the-Loop Approvals Center (`/app/approvals`)
+- **Review Queue**: Dedicated queue for content awaiting human signoff.
+- **Side-by-Side Verification**: Displays generated text alongside extracted source evidence excerpts.
+- **1-Click Actions**: **Approve & Publish**, **Regenerate with Feedback**, or **Reject**.
+- **Governance Gate**: Hard security blocks cannot be approved; only clean, verified content can reach distribution.
+
+### 5. Activity & Tamper-Evident Audit (`/app/activity`)
+- **Real-Time Operational Telemetry**: Chronological stream of source ingestions, transformations, security interventions, and publishing events.
+- **Cryptographic SHA-256 Hash Chaining**: Every audit entry is cryptographically linked to the previous entry, preventing historical log tampering.
+- **Filterable Timeline**: View events by All, Content, Automations, Approvals, Security Checks, or Distribution.
+
+### 6. Workspace Settings & Profile (`/app/settings`, `/app/profile`)
+- **Brand Voice Directives**: Customize tone, target audience, banned phrases, and mandatory compliance disclaimers.
+- **Integrations**: Manage LinkedIn OAuth 2.0 connection, Meta WhatsApp Business Cloud linking, and webhook keys.
+- **Security Preferences**: Two-factor authentication controls and quick link to the Security Attack Simulator.
+
+---
+
+## Layered Zero-Trust Security Pipeline
+
+> **Core Principle**: External content is data. External content is never trusted as instructions.
+
+NEXUS AI protects AI processing through five coordinated defense layers:
+
+```text
+                    [ INGESTION PAYLOAD ]
+                              │
+┌─────────────────────────────▼─────────────────────────────┐
+│ LAYER 1 — NORMALIZATION                                   │
+│ Unicode NFKC, zero-width stripping, whitespace collapse   │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────┐
+│ LAYER 2 — RULE-BASED DETERMINISTIC DETECTION             │
+│ Direct instruction overrides, persona hijack, bypasses    │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────┐
+│ LAYER 3 — STRUCTURAL & HEURISTIC DETECTION                │
+│ Multi-vector combinations, indirect document markers,     │
+│ delimiter tampering (<source>, [INST], etc.)              │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────┐
+│ LAYER 5 — SENSITIVE INFORMATION & CANARY SCREENING        │
+│ Credentials, JWTs, API keys, PII + Honeytoken interceptor │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────┐
+│ LAYER 4 — SECURITY CLASSIFIER & ENTERPRISE REPORTING      │
+│ Deterministic policy: ALLOW / REVIEW / BLOCK              │
+│ Generates: 4-part report (What, Why, Action, Result)      │
+└─────────────────────────────┬─────────────────────────────┘
+                              │
+               ┌──────────────┴──────────────┐
+               ▼                             ▼
+         [ BLOCK / REVIEW ]               [ ALLOW ]
+               │                             │
+    • Halted immediately             • Isolated inside
+    • Audit log (SHA-256)              <source_document_data_untrusted>
+    • UI Intervention Card           • Prompt Intelligence & Transform
+    • Zero publishing possible       • Output Validation Gate
+```
+
+* **Layer 1 (Normalization)**: Preserves the raw source separately while normalizing analysis text via Unicode `NFKC`, removing zero-width characters (`\u200B-\u200D`, `\uFEFF`, `\u200E-\u200F`), and resolving obfuscated spacing.
+* **Layer 2 (Rule-Based Detection)**: Deterministically detects instruction overrides (`"ignore all previous instructions"`, `"disregard rules"`), persona hijacks (`"you are now..."`, `"act as system"`), and bypass directives (`"bypass security"`, `"disable safety"`).
+* **Layer 3 (Structural Heuristics)**: Identifies correlated multi-vector attacks (override combined with system prompt or secret extraction), indirect injection markers in documents (`"IMPORTANT AI INSTRUCTION:"`), and delimiter boundary tampering (`<source>`, `[INST]`, `<|im_start|>`).
+* **Layer 4 (Classifier & Reporting)**: Assigns calibrated confidence scores, records detection and policy versions (`nexus-defense-v2.4`, `zero-trust-policy-v2`), and produces plain-language enterprise explanations.
+* **Layer 5 (Secrets & Honeytokens)**: Detects AWS access keys, GitHub PATs, JWT tokens, Bearer tokens, private keys, passwords, and PII. Masks all evidence (`sk_live_••••••••`). Detects non-functional decoy canary honeytokens (`NEXUS_DEMO_SECRET_7X9Q_FAKE`).
+* **Safe Context Boundary**: External data is wrapped in strict `<source_document_data_untrusted>` boundaries with explicit directives to the LLM that enclosed content is passive data and cannot redefine system instructions.
+* **Output Validation**: Screens generated outputs for system prompt leakage, credential exposure, or canary reproduction before reaching the user.
+* **Fail-Closed Guarantee**: Any unexpected exception during screening pauses processing and defaults to `BLOCK`.
+
+---
+
+## Deterministic Trust Score (0–100)
+
+Every synthesized artefact is evaluated by a multi-pillar scoring formula:
 
 $$\text{Trust Score} = 40\% \times \text{Security} + 25\% \times \text{Grounding} + 20\% \times \text{Compliance} + 15\% \times \text{Governance}$$
 
-- **Security (40%)**: Clean scan across injection shields and secret detectors.
-- **Factual Grounding (25%)**: Mathematical match percentage between generated claims and source paragraphs.
-- **Policy Compliance (20%)**: Conformance to length, tone, and brand disclaimers.
-- **Human Governance (15%)**: Verification and signoff state in the approval lifecycle.
+| Pillar | Weight | Evaluation Criteria |
+| :--- | :---: | :--- |
+| **Security** | 40% | Zero prompt injections, zero exposed credentials, zero delimiter anomalies. |
+| **Factual Grounding** | 25% | Percentage of factual claims and statistics verifiable against source document paragraphs. |
+| **Brand Compliance** | 20% | Conformance to length, tone, prohibited word exclusions, and mandatory disclaimers. |
+| **Human Governance** | 15% | Status in the human-in-the-loop review and signoff lifecycle. |
 
-### 5. Human-in-the-Loop Approvals Center
-- Role-based review queue for all generated content.
-- Side-by-side comparison of source documents and AI outputs.
-- One-click actions: **Approve & Publish**, **Regenerate with Feedback**, or **Reject**.
-- Direct dispatch to integrated distribution channels upon approval.
+---
 
-### 6. Automations Platform v2.0
-A complete workflow execution and scheduling platform:
-- **Creation Options**:
-  - **Natural Language Intent**: Describe workflows in plain text (e.g., *"Whenever I upload a research paper, create a LinkedIn post and request approval"*); Prompt Intelligence translates this into structured configurations.
-  - **8-Step Guided Builder**: Configure Trigger, Source, Transform, Protect, Review, Distribute, Conditions, and Activation.
-- **Trigger Types**:
-  - `Content Uploaded`: Triggered when a new PDF or document is attached.
-  - `Recurring Schedule`: Daily, weekday, or weekly recurrence with timezone support.
-  - `Security Advisory`: Auto-triggers upon detection of high-severity CVEs or threat reports.
-  - `Scheduled Digest`: Aggregates rolling weekly updates into a consolidated briefing.
-- **Safe Simulation Sandbox (Dry Run)**: Safely test understanding, transformation, and security checks without publishing to live channels or consuming distribution quotas.
-- **30-Day Rolling Reliability Index (Health Score)**: Evaluates automation stability based on Run Success Rate (40%), Avg Trust Score (25%), Approval Retention (15%), Recency (10%), and Security Interventions (10%).
-- **Cryptographic Content Lineage**: Backwards traceability tree linking published output $\to$ run telemetry $\to$ source document excerpts $\to$ security screening $\to$ approver.
-- **Immutable Version History**: Every update snapshots the definition ($v1.0, v2.0, \dots$); in-flight executions remain unaffected, and previous versions can be restored in 1-click.
-- **Manual Override**: Cancel in-flight or waiting executions at any time.
+## Multi-Channel Distribution
 
-### 7. Multi-Channel Distribution
-- **LinkedIn Integration**: Real OAuth 2.0 connection using LinkedIn’s official 202608 REST API with AES-256-GCM encrypted token storage.
-- **Meta WhatsApp Business Cloud API**: Automated broadcast alerts, message templates, and interactive approval notifications.
-- **Workflow Webhooks**: Secure HMAC-signed triggers and callback processing for external orchestration.
-
-### 8. Tamper-Evident Activity & Audit Trail
-- Comprehensive event logging for all user, transformation, security, and publishing actions.
-- Cryptographic SHA-256 hash chaining to verify timeline integrity.
+* **LinkedIn Integration**: Real OAuth 2.0 connection using LinkedIn’s official REST API (Version 202608) with AES-256-GCM encrypted token storage.
+* **Meta WhatsApp Business Cloud API**: Verified message templates, alert broadcasts, and interactive approval messaging.
+* **Webhook Architecture**: HMAC-signed webhook delivery for external pipeline integration.
+* **Fail-Closed Distribution Gate**: Content blocked by security can never be published. Direct publishing is prohibited without verified state.
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology | Purpose |
+| Component | Technology | Rationale |
 | :--- | :--- | :--- |
-| **Frontend Framework** | Next.js 16 (App Router, Turbopack) | Fast, responsive server-rendered and client-side UI |
-| **Language** | TypeScript 5 | Strict end-to-end type safety |
-| **UI Library** | React 19, Tailwind CSS v4, Lucide React, Framer Motion | Enterprise design system and micro-animations |
-| **Database & Auth** | Firebase (Auth, Cloud Firestore) | Identity management and document persistence with in-memory caching |
-| **AI Providers** | Google Gemini (`gemini-1.5-flash`), Ollama (`llama3.2`) | Free-first, zero-budget cloud and local offline LLM reasoning |
-| **Social Publishing** | LinkedIn REST API (Version 202608) | Official member post creation with encrypted tokens |
-| **Messaging** | Meta WhatsApp Business Cloud API | Direct notification templates and webhook processing |
-| **Security & Crypto** | Web Crypto API (SHA-256, AES-256-GCM) | Token encryption and audit log hash chaining |
+| **Frontend Framework** | Next.js 16 (App Router, Turbopack) | Responsive server-rendered and client-side architecture |
+| **Language** | TypeScript 5 | Strict end-to-end static type safety |
+| **Styling & Icons** | Tailwind CSS v4, Lucide React, Motion | Enterprise-grade clean design system and fluid animations |
+| **Persistence & Auth** | Firebase (Auth, Cloud Firestore) | Document persistence with in-memory caching for performance |
+| **AI Reasoning** | Google Gemini (`gemini-1.5-flash`), Ollama (`llama3.2`) | Free-first cloud reasoning with automatic local offline fallback |
+| **Social Distribution** | LinkedIn REST API (v202608) | Official member post creation with encrypted tokens |
+| **Mobile Messaging** | Meta WhatsApp Business Cloud API | Direct notification templates and webhook processing |
+| **Cryptography** | Web Crypto API (SHA-256, AES-256-GCM) | Token encryption at rest and audit log hash chaining |
 
 ---
 
@@ -117,37 +185,40 @@ nexoura/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/                  # Login, signup, and onboarding routes
-│   │   ├── app/                     # Authenticated SaaS product experience
-│   │   │   ├── page.tsx             # Main dashboard
-│   │   │   ├── create/              # 5-step manual creation workflow
-│   │   │   ├── automations/         # Automations platform
-│   │   │   │   ├── page.tsx         # Overview cards, health metrics & templates
-│   │   │   │   ├── new/             # 8-step builder & natural language prompt
+│   │   ├── app/                     # Authenticated SaaS application
+│   │   │   ├── page.tsx             # Dashboard overview
+│   │   │   ├── create/              # 5-step creation wizard with security intervention
+│   │   │   ├── automations/         # Automations Platform v2.0
+│   │   │   │   ├── page.tsx         # Automation cards, health index & templates
+│   │   │   │   ├── new/             # 8-step builder & natural language intent prompt
 │   │   │   │   └── [id]/            # 5-tab detail workspace (Workflow, Runs, Health, Lineage, Settings)
 │   │   │   ├── approvals/           # Human governance & review center
-│   │   │   ├── activity/            # Real-time event log & cryptographic audit trail
+│   │   │   ├── activity/            # Real-time event log & SHA-256 audit trail
+│   │   │   ├── security/            # Security Dashboard & interactive Attack Simulator
 │   │   │   ├── profile/             # User profile & organization affiliation
 │   │   │   └── settings/            # Brand voice, integrations, and preferences
 │   │   └── api/                     # Server-side API endpoints
-│   │       ├── ai/                  # Model routing, status, and provider health
-│   │       ├── approvals/           # Content approval and rejection actions
-│   │       ├── audit/               # Audit log querying and cryptographic verification
-│   │       ├── automation/          # Rules, executions, simulation, health, lineage, versions
+│   │       ├── ai/                  # AI provider routing, status, and health
+│   │       ├── approvals/           # Approval and rejection handlers
+│   │       ├── audit/               # Audit log querying and hash verification
+│   │       ├── automation/          # Automation execution, rules, simulation, health, lineage
 │   │       ├── content/             # Content retrieval, regeneration, and visual generation
 │   │       ├── integrations/        # LinkedIn OAuth & publishing endpoints
-│   │       ├── security/            # Source and output scanning engines
+│   │       ├── security/            # Source and output security scanner routes
 │   │       └── whatsapp/            # Meta WhatsApp Cloud webhook & dispatch
 │   ├── components/                  # Reusable UI component library (Button, Badge, Modal, etc.)
-│   ├── context/                     # Global state (AuthContext)
+│   ├── context/                     # Global state providers (AuthContext)
 │   ├── hooks/                       # Custom React hooks (useAutomations, useContent, etc.)
 │   ├── lib/                         # Core platform services & business logic
-│   │   ├── ai/                      # AI provider router (Gemini / Ollama)
+│   │   ├── ai/                      # AI provider router, prompt safety, and source analysis
 │   │   ├── firebase/                # Firebase client configuration and Firestore helpers
 │   │   ├── integrations/            # LinkedIn client and token encryption utilities
-│   │   ├── security/                # Injection filters, PII redactors, and grounding verifiers
-│   │   ├── services/                # Automation, content, audit, and publishing managers
+│   │   ├── security/                # 5-layer SecurityEngine and detection rules
+│   │   ├── services/                # Automation, content, audit, and security managers
 │   │   └── whatsapp/                # Meta Cloud API message handlers
 │   └── types/                       # Central TypeScript domain interfaces
+├── scripts/
+│   └── verify-security-pipeline.ts  # Automated security & prompt injection test suite
 ├── public/                          # Static assets and favicons
 ├── .env.example                     # Environment variables specification
 ├── package.json                     # Project manifest & scripts
@@ -157,47 +228,72 @@ nexoura/
 
 ---
 
-## Getting Started
+## Setup Instructions
 
-### Prerequisites
-- **Node.js**: `v18.17.0` or higher
-- **Package Manager**: `npm`, `pnpm`, or `yarn`
-- **Git**
-
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Shahrukh4676/sih.git nexoura
-   cd nexoura
-   ```
-
-2. **Install project dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables:**
-   Copy the example environment file and fill in your credentials:
-   ```bash
-   cp .env.example .env.local
-   ```
-
-4. **Run the Development Server:**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open the Application:**
-   Navigate to [http://localhost:3000](http://localhost:3000) in your web browser.
+Follow this step-by-step guide to configure, build, and run NEXUS AI locally.
 
 ---
 
-## Environment Configuration
+### 1. Prerequisites
 
-Configure the following variables in your `.env.local` file:
+Ensure your development environment meets the following requirements:
 
-### 1. Firebase Configuration (Client & Auth)
+* **Node.js**: `v18.17.0` or higher (`v20.x` or `v22.x` LTS strongly recommended)
+* **Package Manager**: `npm` (comes with Node.js), `pnpm`, or `yarn`
+* **Git**: Installed and available in your terminal
+* **Accounts (Free Tier)**:
+  * **Google AI Studio**: Free Gemini API Key ([https://aistudio.google.com/](https://aistudio.google.com/))
+  * **Firebase Console**: Free Spark Plan project for Authentication & Firestore ([https://console.firebase.google.com/](https://console.firebase.google.com/))
+  * **LinkedIn Developer App (Optional)**: Required only if testing live OAuth 2.0 posting ([https://www.linkedin.com/developers/apps](https://www.linkedin.com/developers/apps))
+
+---
+
+### 2. Step-by-Step Installation
+
+#### Step 1: Clone the Repository
+```bash
+git clone https://github.com/Shahrukh4676/sih.git nexoura
+cd nexoura
+```
+
+#### Step 2: Install Dependencies
+```bash
+npm install
+```
+
+#### Step 3: Configure Environment Variables
+Copy the provided `.env.example` template to `.env.local`:
+
+* **macOS / Linux / Git Bash:**
+  ```bash
+  cp .env.example .env.local
+  ```
+* **Windows (PowerShell):**
+  ```powershell
+  Copy-Item .env.example .env.local
+  ```
+* **Windows (Command Prompt):**
+  ```cmd
+  copy .env.example .env.local
+  ```
+
+#### Step 4: Populate Credentials in `.env.local`
+Open `.env.local` in your preferred code editor and configure the sections below:
+
+##### A. Google Gemini AI (Primary Free-Tier Intelligence)
+Obtain your free API key at [https://aistudio.google.com/](https://aistudio.google.com/):
+```env
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-1.5-flash
+```
+
+##### B. Firebase Authentication & Firestore (Persistence)
+In [Firebase Console](https://console.firebase.google.com/):
+1. Create a project and register a Web App (`</>`).
+2. Enable **Email/Password** under **Authentication → Sign-in method**.
+3. Create a **Cloud Firestore** database (Start in test mode or with security rules).
+4. Copy your web app config keys into `.env.local`:
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -207,59 +303,160 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-### 2. AI Provider (Free-First Budget Policy)
-```env
-AI_PROVIDER=gemini                     # 'gemini' | 'ollama'
-GEMINI_API_KEY=your_gemini_api_key     # Free tier from https://aistudio.google.com/
-GEMINI_MODEL=gemini-1.5-flash
+##### C. LinkedIn Publishing (Live or Simulation Mode)
+* **Simulation Mode (Recommended for testing without LinkedIn API review):**
+  ```env
+  LINKEDIN_MODE=simulation
+  ```
+* **Live Member Mode (Requires registered LinkedIn Developer App with `w_member_social` permission):**
+  ```env
+  LINKEDIN_MODE=live
+  LINKEDIN_CLIENT_ID=your_linkedin_client_id
+  LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+  LINKEDIN_REDIRECT_URI=http://localhost:3000/api/integrations/linkedin/callback
+  LINKEDIN_API_VERSION=202608
+  LINKEDIN_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  ```
 
-# Optional: Local Offline LLM Fallback
+##### D. Optional: Offline Local LLM Fallback (Ollama)
+If you prefer running models completely offline without external APIs:
+```env
+# Install Ollama from https://ollama.ai and run: ollama pull llama3.2
+AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 ```
 
-### 3. LinkedIn Integration (OAuth 2.0 & Publishing)
-```env
-LINKEDIN_MODE=live                     # 'live' | 'simulation'
-LINKEDIN_CLIENT_ID=your_linkedin_client_id
-LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
-LINKEDIN_REDIRECT_URI=http://localhost:3000/api/integrations/linkedin/callback
-LINKEDIN_API_VERSION=202608
-LINKEDIN_ENCRYPTION_KEY=your_32_byte_hex_key_for_aes_256_gcm
-```
+---
 
-### 4. Meta WhatsApp Business Cloud API (Optional)
-```env
-WHATSAPP_ACCESS_TOKEN=your_meta_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-WHATSAPP_BUSINESS_ACCOUNT_ID=your_account_id
-WHATSAPP_VERIFY_TOKEN=your_webhook_verify_token
+### 3. Generate Benchmark Security Test PDFs
+
+Generate the verified demo PDFs used in the Create and Ingestion security tests:
+```bash
+node scripts/generate-demo-pdfs.js
+```
+This produces two valid PDF 1.4 documents:
+* `nexus-prompt-injection-demo.pdf`: Contains embedded adversarial instruction overrides.
+* `nexus-research-clean.pdf`: Clean baseline research document.
+
+---
+
+### 4. Run the Security Defense Verification Suite
+
+Before launching the app, verify that all 18 security checkpoints pass:
+```bash
+npx tsx scripts/verify-security-pipeline.ts
 ```
 
 ---
 
-## Development Scripts
+### 5. Launch the Development Server
+
+Start the Next.js development server powered by Turbopack:
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+### 6. Production Build & Deployment Check
+
+To validate static route generation and production readiness:
+```bash
+# 1. Run full TypeScript static type check
+npx tsc --noEmit
+
+# 2. Build optimized Next.js production bundle
+npm run build
+
+# 3. Start production server
+npm start
+```
+
+---
+
+## Available NPM Scripts
 
 | Command | Description |
 | :--- | :--- |
-| `npm run dev` | Starts the Next.js development server with Turbopack on port `3000` |
-| `npx tsc --noEmit` | Runs TypeScript static type checking across the entire codebase |
-| `npm run build` | Compiles an optimized production build and validates all dynamic routes |
-| `npm start` | Starts the production server using the built `.next` bundle |
-| `npm run lint` | Runs ESLint to check for code style and syntax consistency |
+| `npm run dev` | Launches Next.js dev server with Turbopack on port `3000` |
+| `npx tsc --noEmit` | Validates static TypeScript types across the entire project |
+| `npx tsx scripts/verify-security-pipeline.ts` | Executes the 18-point Security & Prompt Injection automated test suite |
+| `node scripts/generate-demo-pdfs.js` | Generates benchmark clean and malicious test PDFs |
+| `npm run build` | Compiles an optimized production build and checks all dynamic routes |
+| `npm start` | Runs the production server using the compiled `.next` bundle |
+| `npm run lint` | Runs ESLint to check for code syntax and formatting rules |
 
 ---
 
-## Security & Privacy Design
+## Troubleshooting & Common Questions
 
-- **Zero-Storage of Raw Plaintext Tokens**: External OAuth refresh tokens are encrypted at rest using AES-256-GCM.
-- **Client-Side Secrets Protection**: Sensitive backend API keys (Gemini, LinkedIn Secret, Meta App Secret) never carry the `NEXT_PUBLIC_` prefix and are strictly restricted to Node.js server routes.
-- **Untrusted Input Isolation**: All user-submitted files and external URLs are treated as untrusted and screened prior to model ingestion.
-- **Cryptographic Traceability**: Audit logs use forward SHA-256 hash chaining to ensure historical logs cannot be mutated without invalidating subsequent signatures.
-- **No Private Data Training**: User feedback and edits are preserved purely as local configuration preferences (e.g. tone selection), never utilized for external foundational model training.
+<details>
+<summary><strong>Q: What if port 3000 is already in use?</strong></summary>
+
+You can specify an alternate port when running the dev server:
+```bash
+npm run dev -- -p 3001
+```
+</details>
+
+<details>
+<summary><strong>Q: Can I demo LinkedIn publishing without a verified LinkedIn Developer Account?</strong></summary>
+
+Yes! Set `LINKEDIN_MODE=simulation` in `.env.local`. NEXUS will simulate the OAuth connection and publishing lifecycle while recording full cryptographic audit events and calculating real Trust Scores.
+</details>
+
+<details>
+<summary><strong>Q: What if I don't have a Gemini API key yet?</strong></summary>
+
+You can test the entire Security Engine, Attack Simulator, and PDF Ingestion layer immediately. The Security Engine runs locally on the server and does not require third-party API keys to identify prompt injections, honeytokens, credentials, or malicious documents.
+</details>
+
+---
+
+## Automated Security Verification
+
+NEXUS includes an automated test suite verifying all 18 core acceptance criteria of the security defense layer:
+
+```bash
+npx tsx scripts/verify-security-pipeline.ts
+```
+
+**Verified 18-Point Test Matrix:**
+* [x] **TEST 1**: Clean user prompt evaluated and permitted (`ALLOW`).
+* [x] **TEST 2**: Direct prompt injection (`"Ignore previous instructions"`) blocked (`BLOCK`).
+* [x] **TEST 3**: System prompt extraction attempt intercepted and blocked (`BLOCK`).
+* [x] **TEST 4**: Secret extraction attempt flagged as high risk (`BLOCK`).
+* [x] **TEST 5**: Role override / privilege manipulation blocked (`BLOCK`).
+* [x] **TEST 6**: Clean enterprise article passes cleanly (`ALLOW`).
+* [x] **TEST 7**: Indirect prompt injection embedded inside normal article text detected and blocked (`BLOCK`).
+* [x] **TEST 8**: Real malicious demo PDF (`nexus-prompt-injection-demo.pdf`) extracted and blocked (`BLOCK`).
+* [x] **TEST 9**: Real clean demo PDF (`nexus-research-clean.pdf`) extracted and allowed (`ALLOW`).
+* [x] **TEST 10**: URL scraped injection and delimiter tampering intercepted (`BLOCK`).
+* [x] **TEST 11**: Clean URL content evaluated and allowed (`ALLOW`).
+* [x] **TEST 12**: Controlled fake honeytoken (`NEXUS_DEMO_SECRET_7X9Q_FAKE`) detected (`CRITICAL` / `BLOCK`).
+* [x] **TEST 13**: Legitimate technical document with words "instructions" and "system" allowed (no false positive).
+* [x] **TEST 14**: AI output containing leaked secret blocked by output security gate (`BLOCK`).
+* [x] **TEST 15**: Security engine failure defaults to fail-closed protection (`BLOCK`).
+* [x] **TEST 16**: Blocked content strictly prevented from reaching publishing gates.
+* [x] **TEST 17**: Clean content permitted to continue to Prompt Intelligence and approval.
+* [x] **TEST 18**: Attack simulation payloads pass real SecurityEngine and remain isolated from publishing.
+
+---
+
+## Security, Privacy & Compliance Guarantees
+
+* **Encrypted Tokens at Rest**: External OAuth access and refresh tokens are encrypted using AES-256-GCM before storage.
+* **Server-Restricted Secrets**: Sensitive credentials (Gemini API keys, LinkedIn secrets, encryption keys) are strictly confined to Node.js server routes.
+* **Strict Evidence Masking**: Detected credentials or PII are redacted before storage (`sk_live_••••••••`, `AKIA••••••••`).
+* **Cryptographic Audit Integrity**: Historical audit events use SHA-256 hash chaining to ensure immutability.
+* **Fail-Closed Architecture**: If any security scanner or boundary check fails unexpectedly, execution halts rather than allowing uninspected data through.
+* **Calibrated Claims**: NEXUS employs layered defense-in-depth rather than making unverified claims of "100% security."
 
 ---
 
 ## License
 
-This project is licensed for internal enterprise development under the repository terms.
+This project is licensed for enterprise development under the repository terms.

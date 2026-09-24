@@ -83,6 +83,7 @@ export interface TransformationOptions {
   language: string;
   detailLevel: DetailLevel;
   communicationObjective: CommunicationObjective;
+  customInstructions?: string;
   brandPreferences?: {
     tone?: string;
     bannedPhrases?: string[];

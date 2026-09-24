@@ -1,5 +1,8 @@
 // ==============================================================================
-// NEXUS AI - POST /api/security/scan/source (Phase 9: Real Security Scanner)
+// NEXUS AI - POST /api/security/scan/source
+// ==============================================================================
+// Production-grade security scanning endpoint.
+// Real layered defense: Normalization, Rule-based, Heuristics, Classifier & Honeytokens.
 // ==============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,8 +12,6 @@ import { logAuditEvent } from "@/lib/services/audit.service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const HONEYTOKEN_PATTERN = /AKIA_NEXUS_DEMO_HONEYTOKEN_DO_NOT_USE_7781|HONEYTOKEN|NX-CANARY/i;
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,77 +29,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Run deterministic SecurityEngine scan
+    // 1. Run deterministic multi-layered SecurityEngine scan
     const decision = SecurityEngine.scanSource(textToScan, {
       organizationId,
       userId,
       sourceId: `probe_${Date.now()}`,
     });
 
-    const isHoneytoken = HONEYTOKEN_PATTERN.test(textToScan);
+    const isHoneytoken = Boolean(decision.honeytokenTriggered);
     const hasInjection = decision.findings.some((f) => f.type === "PROMPT_INJECTION");
+    const isBlocked = decision.decision === "BLOCK";
 
-    if (hasInjection) {
-      decision.decision = "BLOCK";
-      decision.riskLevel = "CRITICAL";
-      decision.reasons.push("PROMPT INJECTION BLOCKED: Direct adversarial instruction override detected.");
-    }
-
-    if (isHoneytoken) {
-      decision.decision = "BLOCK";
-      decision.riskLevel = "CRITICAL";
-      decision.reasons.push("CRITICAL HONEYTOKEN BREACH: Canary token exposure detected in source payload.");
-      decision.findings.push({
-        id: `find_${Date.now()}`,
-        type: "SECRET",
-        severity: "CRITICAL",
-        evidence: "Canary Honeytoken: AKIA_NEXUS_DEMO_HONEYTOKEN_DO_NOT_USE_7781",
-        description: "Zero-tolerance active decoy honeytoken exposure triggered.",
-        location: "Source payload",
-        recommendedAction: "Quarantine source and alert security operations center.",
-      });
-
-      // 2. Record immutable blockchain audit entry
+    // 2. Record Tamper-Evident SHA-256 Audit Trail
+    if (isBlocked || isHoneytoken || hasInjection) {
       await logAuditEvent({
         organizationId,
         userId,
         userEmail: "security-gate@nexus.ai",
         userRole: "SECURITY_OFFICER",
         ipAddress: "127.0.0.1",
-        userAgent: "NEXUS-ZeroTrustScanner",
-        action: "HONEYTOKEN_EXPOSURE",
-        resourceType: "SECURITY_CANARY",
-        resourceId: `honeytoken_${Date.now()}`,
-        severity: "CRITICAL",
+        userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+        action: isHoneytoken
+          ? "HONEYTOKEN_EXPOSURE"
+          : hasInjection
+          ? "PROMPT_INJECTION_BLOCKED"
+          : "SECURITY_POLICY_VIOLATION",
+        resourceType: isHoneytoken ? "SECURITY_CANARY" : "CONTENT_INGESTION",
+        resourceId: `sec_event_${Date.now()}`,
+        severity: decision.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
         details: {
           testCase,
-          verdict: "BLOCKED",
-          triggeredBy: userId,
-          tokenPattern: "AKIA_NEXUS_DEMO_HONEYTOKEN",
+          verdict: decision.decision,
+          riskLevel: decision.riskLevel,
+          confidence: decision.confidence,
+          detectionVersion: decision.detectionVersion,
+          policyVersion: decision.policyVersion,
+          safeSummary: decision.report?.whatHappened || decision.summary,
         },
       });
 
       // 3. Record Security Event in database
       await SecurityService.recordSecurityEvent({
         organizationId,
-        eventType: "HONEYTOKEN_EXPOSURE" as any,
-        severity: "CRITICAL",
-        description: "CRITICAL HONEYTOKEN DETECTED: Automated canary credential was accessed or passed into the transformation engine.",
-        actorId: userId,
-        timestamp: new Date().toISOString(),
-        status: "OPEN",
-      });
-    } else if (decision.riskLevel === "CRITICAL" || decision.riskLevel === "HIGH") {
-      await SecurityService.recordSecurityEvent({
-        organizationId,
-        eventType: decision.findings.some((f) => f.type === "PROMPT_INJECTION")
+        eventType: isHoneytoken
+          ? ("HONEYTOKEN_EXPOSURE" as any)
+          : hasInjection
           ? ("PROMPT_INJECTION_DETECTED" as any)
-          : ("PII_LEAK_ATTEMPT" as any),
+          : ("SECURITY_POLICY_BLOCKED" as any),
         severity: decision.riskLevel,
-        description: `Source security alert: ${decision.summary}`,
+        description: decision.report?.whatHappened || decision.summary,
         actorId: userId,
         timestamp: new Date().toISOString(),
-        status: "OPEN",
+        status: "RESOLVED",
       });
     }
 
@@ -113,15 +95,26 @@ export async function POST(req: NextRequest) {
       findingsCount: decision.findings.length,
       findings: decision.findings,
       scanId,
-      honeytokenTriggered: isHoneytoken,
+      confidence: decision.confidence,
+      detectionVersion: decision.detectionVersion,
+      policyVersion: decision.policyVersion,
+      honeytokenTriggered: decision.honeytokenTriggered,
+      checks: decision.checks,
+      report: decision.report,
+      summary: decision.summary,
+      checkedAt: decision.checkedAt,
+      // Backward compatibility for existing settings/test widgets
       scanResult: {
         safe: decision.decision === "ALLOW",
         decision: decision.decision,
         riskLevel: decision.riskLevel,
         threatsDetected: decision.reasons || [],
-        riskScore: (decision as any).riskScore ?? 0,
-        honeytokenTriggered: isHoneytoken,
+        riskScore: decision.riskLevel === "CRITICAL" ? 95 : decision.riskLevel === "HIGH" ? 75 : 0,
+        honeytokenTriggered: decision.honeytokenTriggered,
         findings: decision.findings,
+        checks: decision.checks,
+        report: decision.report,
+        summary: decision.summary,
       },
     });
   } catch (error: unknown) {

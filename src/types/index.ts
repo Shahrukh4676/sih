@@ -377,11 +377,29 @@ export interface AuditVerificationResult {
 export interface SecurityEvent {
   id: string;
   organizationId: string;
-  eventType: 'FAILED_LOGIN' | 'SUSPICIOUS_IP' | 'PII_LEAK_ATTEMPT' | 'PROMPT_INJECTION_DETECTED' | 'TOKEN_REVOKED' | 'APPROVAL_BYPASS_ATTEMPT';
+  eventType:
+    | 'FAILED_LOGIN'
+    | 'SUSPICIOUS_IP'
+    | 'PII_LEAK_ATTEMPT'
+    | 'PROMPT_INJECTION_DETECTED'
+    | 'TOKEN_REVOKED'
+    | 'APPROVAL_BYPASS_ATTEMPT'
+    | 'HONEYTOKEN_EXPOSURE'
+    | 'SECURITY_POLICY_BLOCKED'
+    | 'OUTPUT_SECURITY_LEAK_BLOCKED'
+    | 'SUSPICIOUS_SOURCE';
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   description: string;
   actorId?: string;
+  sourceType?: string;
+  decision?: string;
+  runId?: string;
+  automationId?: string;
+  detectionVersion?: string;
+  policyVersion?: string;
+  details?: Record<string, unknown>;
   timestamp: string;
+  createdAt?: string;
   status: 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED';
 }
 
@@ -477,6 +495,8 @@ export type SecurityFindingType =
   | 'PROMPT_INJECTION'
   | 'PII'
   | 'SECRET'
+  | 'HONEYTOKEN'
+  | 'DELIMITER_TAMPERING'
   | 'UNSAFE_INSTRUCTION'
   | 'UNSUPPORTED_CLAIM';
 
@@ -490,6 +510,21 @@ export interface SecurityFinding {
   recommendedAction: string;
 }
 
+export interface SecurityCheckItem {
+  name: string;
+  status: 'passed' | 'warning' | 'blocked';
+  severity: SecurityRiskLevel;
+  explanation: string;
+}
+
+export interface SecurityReportDetails {
+  whatHappened: string;
+  sourceType?: string;
+  why: string;
+  whatNexusDid: string;
+  result: string;
+}
+
 export interface SecurityDecision {
   decision: SecurityDecisionAction;
   riskLevel: SecurityRiskLevel;
@@ -498,6 +533,21 @@ export interface SecurityDecision {
   findings: SecurityFinding[];
   summary: string;
   checkedAt: string;
+  confidence?: number;
+  detectionVersion?: string;
+  policyVersion?: string;
+  honeytokenTriggered?: boolean;
+  sourceType?: string;
+  isSimulation?: boolean;
+  checks?: SecurityCheckItem[];
+  report?: SecurityReportDetails;
+  classifierResult?: {
+    detected: boolean;
+    category: string;
+    severity: string;
+    confidence: number;
+    recommendedAction: string;
+  };
 }
 
 export interface SecurityScan extends BaseResource {

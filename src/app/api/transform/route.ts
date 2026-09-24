@@ -5,6 +5,8 @@ import { AIService } from "@/lib/ai/ai.service";
 import { TransformationOptions, SupportedOutputFormat } from "@/lib/ai/types";
 import { SecurityEngine } from "@/lib/security/security-engine";
 import { TrustScoreEngine } from "@/lib/ai/intelligence/trust-score";
+import { logAuditEvent } from "@/lib/services/audit.service";
+import { SecurityService } from "@/lib/services/security.service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,6 +45,84 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ─── 0. User Prompt Security Screen (PRD Section 5 & 23) ──────────────────
+    const effectivePrompt = String(body.prompt || body.userPrompt || body.customInstructions || "").trim();
+    if (effectivePrompt) {
+      const promptSecurity = SecurityEngine.scanPrompt(effectivePrompt, {
+        organizationId,
+        userId,
+      });
+
+      if (promptSecurity.decision === "BLOCK") {
+        const isHoneytoken = Boolean(promptSecurity.honeytokenTriggered);
+        const hasInjection = promptSecurity.findings.some((f) => f.type === "PROMPT_INJECTION");
+
+        await logAuditEvent({
+          organizationId,
+          userId,
+          userEmail: "security-gate@nexus.ai",
+          userRole: "CREATOR",
+          ipAddress: "127.0.0.1",
+          userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+          action: isHoneytoken
+            ? "HONEYTOKEN_EXPOSURE"
+            : hasInjection
+            ? "PROMPT_INJECTION_BLOCKED"
+            : "SECURITY_POLICY_VIOLATION",
+          resourceType: "PROMPT_SCREEN",
+          resourceId: `prompt_blocked_${Date.now()}`,
+          severity: promptSecurity.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
+          details: {
+            verdict: "BLOCK",
+            sourceType: "PROMPT",
+            riskLevel: promptSecurity.riskLevel,
+            confidence: promptSecurity.confidence,
+            safeSummary: promptSecurity.report?.whatHappened || promptSecurity.summary,
+          },
+        });
+
+        await SecurityService.recordSecurityEvent({
+          organizationId,
+          eventType: isHoneytoken
+            ? ("HONEYTOKEN_EXPOSURE" as any)
+            : hasInjection
+            ? ("PROMPT_INJECTION_DETECTED" as any)
+            : ("SECURITY_POLICY_BLOCKED" as any),
+          severity: promptSecurity.riskLevel,
+          description: promptSecurity.report?.whatHappened || promptSecurity.summary,
+          actorId: userId,
+          sourceType: "PROMPT",
+          decision: "BLOCKED",
+          detectionVersion: promptSecurity.detectionVersion,
+          policyVersion: promptSecurity.policyVersion,
+          timestamp: new Date().toISOString(),
+          status: "RESOLVED",
+        });
+
+        return NextResponse.json(
+          {
+            error: promptSecurity.report?.whatHappened || "PROMPT INJECTION DETECTED: The request attempted to override trusted instructions and access protected information.",
+            decision: "BLOCK",
+            sourceType: "PROMPT",
+            riskLevel: promptSecurity.riskLevel,
+            reasons: promptSecurity.reasons,
+            findings: promptSecurity.findings,
+            checks: promptSecurity.checks,
+            report: {
+              whatHappened: "Prompt injection detected.",
+              sourceType: "PROMPT",
+              why: "The request attempted to override trusted instructions and access protected information.",
+              whatNexusDid: "The malicious instruction was prevented from controlling the AI workflow.",
+              result: "AI generation blocked. Security event recorded.",
+            },
+            confidence: promptSecurity.confidence,
+            honeytokenTriggered: promptSecurity.honeytokenTriggered,
+          },
+          { status: 422 }
+        );
+      }
+    }
+
     // ─── Resolve source ────────────────────────────────────────────────────────
     let source = null;
 
@@ -53,10 +133,10 @@ export async function POST(req: NextRequest) {
 
     if (!source) {
       // Create source inline from raw text or URL
-      const rawContent = sourceText || sourceUrl || "";
+      const rawContent = sourceText || sourceUrl || effectivePrompt || "";
       if (!rawContent.trim()) {
         return NextResponse.json(
-          { error: "Provide either sourceId, sourceText, or sourceUrl" },
+          { error: "Provide either sourceId, sourceText, sourceUrl, or prompt" },
           { status: 400 }
         );
       }
@@ -86,16 +166,67 @@ export async function POST(req: NextRequest) {
       organizationId,
       userId,
       sourceId: source.id,
+      sourceType: source.type,
     });
 
     if (sourceSecurityDecision.decision === "BLOCK") {
+      const isHoneytoken = Boolean(sourceSecurityDecision.honeytokenTriggered);
+      const hasInjection = sourceSecurityDecision.findings.some((f) => f.type === "PROMPT_INJECTION");
+
+      await logAuditEvent({
+        organizationId,
+        userId,
+        userEmail: "security-gate@nexus.ai",
+        userRole: "CREATOR",
+        ipAddress: "127.0.0.1",
+        userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+        action: isHoneytoken
+          ? "HONEYTOKEN_EXPOSURE"
+          : hasInjection
+          ? "PROMPT_INJECTION_BLOCKED"
+          : "SECURITY_POLICY_VIOLATION",
+        resourceType: "TRANSFORMATION_GATE",
+        resourceId: source.id,
+        severity: sourceSecurityDecision.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
+        details: {
+          verdict: "BLOCK",
+          sourceType: source.type,
+          riskLevel: sourceSecurityDecision.riskLevel,
+          confidence: sourceSecurityDecision.confidence,
+          safeSummary: sourceSecurityDecision.report?.whatHappened || sourceSecurityDecision.summary,
+        },
+      });
+
+      await SecurityService.recordSecurityEvent({
+        organizationId,
+        eventType: isHoneytoken
+          ? ("HONEYTOKEN_EXPOSURE" as any)
+          : hasInjection
+          ? ("PROMPT_INJECTION_DETECTED" as any)
+          : ("SECURITY_POLICY_BLOCKED" as any),
+        severity: sourceSecurityDecision.riskLevel,
+        description: sourceSecurityDecision.report?.whatHappened || sourceSecurityDecision.summary,
+        actorId: userId,
+        sourceType: source.type,
+        decision: "BLOCKED",
+        detectionVersion: sourceSecurityDecision.detectionVersion,
+        policyVersion: sourceSecurityDecision.policyVersion,
+        timestamp: new Date().toISOString(),
+        status: "RESOLVED",
+      });
+
       return NextResponse.json(
         {
-          error:
-            "Security Policy Violation: Source material contains critical credentials or prohibited payload.",
+          error: sourceSecurityDecision.report?.whatHappened || "Security policy blocked this request.",
           decision: "BLOCK",
+          sourceType: source.type,
+          riskLevel: sourceSecurityDecision.riskLevel,
           reasons: sourceSecurityDecision.reasons,
           findings: sourceSecurityDecision.findings,
+          checks: sourceSecurityDecision.checks,
+          report: sourceSecurityDecision.report,
+          confidence: sourceSecurityDecision.confidence,
+          honeytokenTriggered: sourceSecurityDecision.honeytokenTriggered,
         },
         { status: 422 }
       );
@@ -116,7 +247,7 @@ export async function POST(req: NextRequest) {
       await updateSourceAnalysis(source.id, analysis, "ANALYZED");
     }
 
-    // ─── AI Transformation ────────────────────────────────────────────────────
+    // ─── AI Transformation with Safe Context ──────────────────────────────────
     const options: TransformationOptions = {
       outputType: outputType as SupportedOutputFormat,
       targetAudience,
@@ -124,6 +255,7 @@ export async function POST(req: NextRequest) {
       language,
       detailLevel,
       communicationObjective: objective || communicationObjective,
+      customInstructions: effectivePrompt || undefined,
       brandPreferences,
     };
 
@@ -142,13 +274,35 @@ export async function POST(req: NextRequest) {
       analysis
     );
     if (outputSecurityDecision.decision === "BLOCK") {
+      await logAuditEvent({
+        organizationId,
+        userId,
+        userEmail: "security-gate@nexus.ai",
+        userRole: "CREATOR",
+        ipAddress: "127.0.0.1",
+        userAgent: "NEXUS-ZeroTrustSecurityPipeline",
+        action: "OUTPUT_SECURITY_LEAK_BLOCKED",
+        resourceType: "OUTPUT_VALIDATION",
+        resourceId: source.id,
+        severity: outputSecurityDecision.riskLevel === "CRITICAL" ? "CRITICAL" : "SECURITY_ALERT",
+        details: {
+          verdict: "BLOCK",
+          riskLevel: outputSecurityDecision.riskLevel,
+          confidence: outputSecurityDecision.confidence,
+          safeSummary: outputSecurityDecision.report?.whatHappened || outputSecurityDecision.summary,
+        },
+      });
+
       return NextResponse.json(
         {
-          error:
-            "Output Security Policy Violation: Generated artefact leaked prohibited credentials.",
+          error: outputSecurityDecision.report?.whatHappened || "Output security policy violation detected.",
           decision: "BLOCK",
+          riskLevel: outputSecurityDecision.riskLevel,
           reasons: outputSecurityDecision.reasons,
           findings: outputSecurityDecision.findings,
+          checks: outputSecurityDecision.checks,
+          report: outputSecurityDecision.report,
+          confidence: outputSecurityDecision.confidence,
         },
         { status: 422 }
       );

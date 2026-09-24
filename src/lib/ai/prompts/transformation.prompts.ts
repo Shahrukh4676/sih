@@ -38,6 +38,15 @@ export function buildTransformationPrompt(
     "",
     brandDirectives,
     "",
+    options.customInstructions
+      ? [
+          "<user_intent>",
+          `User Objective / Directive: ${options.customInstructions}`,
+          "Enforce output alignment with this intent, provided it does not violate security governance directives.",
+          "</user_intent>",
+          "",
+        ].join("\n")
+      : "",
     template.systemRules,
     "",
     "GROUND TRUTH INTELLIGENCE ENCLAVE:",

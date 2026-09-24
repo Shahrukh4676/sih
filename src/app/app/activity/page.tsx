@@ -91,17 +91,26 @@ export default function UserActivityPage() {
           items.push({
             id: `audit_${log.id}`,
             type: "SECURITY_CHECK",
-            title: `Security Alert: Potential Credential Exposure Intercepted`,
-            description: `Decoy credential detected and safely blocked before communication.`,
+            title: "Sensitive information detected",
+            description: "Decoy honeytoken credential intercepted and quarantined before communication.",
             timestamp: log.timestamp || new Date().toISOString(),
-            meta: `Status: Blocked`,
+            meta: `Source: ${log.details?.sourceType || "Document"} • Action: Blocked`,
+          });
+        } else if (log.action === "PROMPT_INJECTION_BLOCKED") {
+          items.push({
+            id: `audit_${log.id}`,
+            type: "SECURITY_CHECK",
+            title: "Prompt injection blocked",
+            description: "Adversarial instructions attempting to override AI directives were contained.",
+            timestamp: log.timestamp || new Date().toISOString(),
+            meta: `Source: ${log.details?.sourceType || "PDF"} • Action: Blocked`,
           });
         } else if (log.action === "SOURCE_INGESTED") {
           items.push({
             id: `audit_${log.id}`,
             type: "CREATED",
-            title: `Source Document Added`,
-            description: `Ingested ${log.details?.fileName || "source material"} for transformation.`,
+            title: "Source Document Ingested",
+            description: `Ingested ${log.details?.fileName || "source material"} through zero-trust boundary.`,
             timestamp: log.timestamp || new Date().toISOString(),
             meta: `Status: Ready`,
           });
@@ -110,13 +119,25 @@ export default function UserActivityPage() {
 
       // 3. Map security events
       (secRes.events || []).forEach((sec: any) => {
+        const isInjection = sec.eventType === "PROMPT_INJECTION_DETECTED";
+        const isCanary = sec.eventType === "HONEYTOKEN_EXPOSURE";
+        const isBlocked = sec.severity === "CRITICAL" || sec.severity === "HIGH" || isInjection || isCanary;
+
         items.push({
           id: `sec_${sec.id}`,
           type: "SECURITY_CHECK",
-          title: `Security Check: ${sec.severity === "CRITICAL" || sec.severity === "HIGH" ? "Threat Blocked" : "Verified"}`,
-          description: sec.description || "Source material screened for prompt injections and sensitive data.",
+          title: isInjection
+            ? "Prompt injection blocked"
+            : isCanary
+            ? "Sensitive information detected"
+            : isBlocked
+            ? "Security check blocked"
+            : "Security check passed",
+          description: isInjection
+            ? "The source content contained instructions attempting to manipulate the AI system."
+            : sec.description || "Source material screened for prompt injections and sensitive credentials.",
           timestamp: sec.timestamp || sec.createdAt || new Date().toISOString(),
-          meta: `Protection: Active`,
+          meta: `Source: ${sec.sourceType || "Document"} • Action: ${isBlocked ? "Blocked" : "Allowed"}`,
         });
       });
 
